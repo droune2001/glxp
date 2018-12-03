@@ -6,7 +6,10 @@
 #include <stdio.h>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-#include "glm_usage.h"
+
+#include "app_test.h"
+
+static App *g_App = nullptr;
 
 static
 void error_callback(int error, const char* description)
@@ -17,8 +20,21 @@ void error_callback(int error, const char* description)
 static 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, GLFW_TRUE);
+    if (g_App)
+    {
+        g_App->onKeyboard(window, key, scancode, action, mods);
+    }
+    else
+    {
+        if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+    }
+}
+
+static
+bool init()
+{
+    return (g_App && g_App->init());
 }
 
 static
@@ -26,15 +42,17 @@ void run(GLFWwindow* window)
 {
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
-    glViewport(0, 0, width, height);
-    glClearColor(1, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
-    
+    if (g_App) 
+    {
+        g_App->draw(width, height);
+    }
 }
 
 int main(int argc, char **argv)
 {
+    g_App = new AppTest();
+
     if (glfwInit() != GLFW_TRUE)
         return EXIT_FAILURE;
     
@@ -43,7 +61,7 @@ int main(int argc, char **argv)
     const char* glsl_version = "#version 460";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    GLFWwindow* window = glfwCreateWindow(640, 480, "My Title", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(1280, 720, "Test", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -73,11 +91,15 @@ int main(int argc, char **argv)
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
-    // Setup style
     ImGui::StyleColorsDark();
-    //ImGui::StyleColorsClassic();
 
     // INIT GL RESOURCES
+    if (!init())
+    {
+        glfwDestroyWindow(window);
+        glfwTerminate();
+        return EXIT_FAILURE;
+    }
 
     bool show_demo_window = true;
     bool show_another_window = false;
@@ -106,6 +128,7 @@ int main(int argc, char **argv)
     }
 
     // Cleanup
+    delete g_App;
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
