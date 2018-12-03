@@ -20,15 +20,21 @@ set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib" ) # .lib windows, 
 
 set( ASSETS_DIR "${CMAKE_SOURCE_DIR}/../data")
 
+set( COMMON_SRC_DIR "${CMAKE_SOURCE_DIR}/common")
+file( GLOB COMMON_SOURCES "${COMMON_SRC_DIR}/*.c*" )
+file( GLOB COMMON_HEADERS "${COMMON_SRC_DIR}/*.h*" )
+
 find_package(GLM)
 find_package(GLFW)
 find_package(GLEW)
 
 # global includes for all projects
+include_directories(${COMMON_SRC_DIR})
 include_directories(${GLM_INCLUDE_DIRS})
 include_directories(${GLFW_INCLUDE_DIRS})
 include_directories(${GLEW_INCLUDE_DIRS})
 
+# PROJECTS
 add_subdirectory(test)
 set_property(TARGET test PROPERTY FOLDER "app")
 
