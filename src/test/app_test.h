@@ -6,6 +6,7 @@
 class AppTest : public App
 {
     bool init() override;
+    void shutdown() override;
     void draw(int width, int height) override;
 
     void onMousePress(int x, int y) override;

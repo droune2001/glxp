@@ -8,6 +8,7 @@ class App
 public:
     
     virtual bool init() = 0;
+    virtual void shutdown() = 0;
     virtual void draw(int width, int height) = 0;
 
     virtual void onMousePress(int x, int y) = 0;
