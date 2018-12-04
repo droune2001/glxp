@@ -1,13 +1,15 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "gl_utils.h"
+#include "app_test.h"
 
+#include <chrono>
+#include <string>
 #include <stdlib.h>
 #include <stdio.h>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-
-#include "app_test.h"
 
 static App *g_App = nullptr;
 
@@ -49,6 +51,38 @@ void run(GLFWwindow* window)
     }
 }
 
+void show_fps_window(bool should_refresh_fps, uint64_t fps)
+{
+    ImGuiWindowFlags window_flags = 0;
+    //window_flags |= ImGuiWindowFlags_MenuBar;
+    window_flags |= ImGuiWindowFlags_NoTitleBar;
+    window_flags |= ImGuiWindowFlags_NoScrollbar;
+    //window_flags |= ImGuiWindowFlags_NoMove;
+    //window_flags |= ImGuiWindowFlags_NoResize;
+    window_flags |= ImGuiWindowFlags_NoCollapse;
+    window_flags |= ImGuiWindowFlags_NoNav;
+    bool *pOpen = nullptr;
+
+    ImGui::Begin("FPS", pOpen, window_flags);
+
+    static float values[30] = {0};
+    static int values_offset = 0;
+    static uint64_t max_fps = 1;
+    if (should_refresh_fps)
+    {
+        values[values_offset] = (float)fps;
+        values_offset = (values_offset + 1) % IM_ARRAYSIZE(values);
+        if (fps > max_fps)
+            max_fps = fps;
+    }
+    std::string text = std::string("FPS: ") + std::to_string(fps);
+    ImGui::PushItemWidth(-1);
+    ImGui::PlotLines("", values, IM_ARRAYSIZE(values), values_offset, text.c_str(), 0.0f, (float)max_fps, ImVec2(0, 50));
+    //ImGui::PlotHistogram("", values, IM_ARRAYSIZE(values), 0, text.c_str(), 0.0f, (float)max_fps, ImVec2(0, 50));
+
+    ImGui::End();
+}
+
 int main(int argc, char **argv)
 {
     g_App = new AppTest();
@@ -59,27 +93,43 @@ int main(int argc, char **argv)
     glfwSetErrorCallback(error_callback);
 
     const char* glsl_version = "#version 460";
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "Test", NULL, NULL);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_FALSE);
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
+    glfwWindowHint(GLFW_VISIBLE, GL_TRUE);
+    glfwWindowHint(GLFW_DECORATED, GL_TRUE);
+    GLFWwindow* window = glfwCreateWindow(1280, 720, "Test", nullptr, nullptr);
     if (!window)
     {
         glfwTerminate();
         return EXIT_FAILURE;
     }
+    glfwSetWindowUserPointer(window, g_App);
 
-    glfwSetKeyCallback(window, key_callback);
-    //glfwSetFramebufferSizeCallback
+    //glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+    //glfwSetCursorPosCallback(window, mouseMoveCallback);
+    //glfwSetMouseButtonCallback(window, mousePressCallback);
+    //glfwSetScrollCallback(window, mouseScrollCallback);
+    //glfwSetKeyCallback(window, key_callback);
     //glfwSetWindowCloseCallback
 
     glfwMakeContextCurrent(window);
-    glfwSwapInterval(1);
-    if (glewInit() != GLEW_OK)
+
+    glewExperimental = GL_TRUE;
+    GLenum err = glewInit();
+    if (err != GLEW_OK)
     {
+        printf("Error initializing GLEW: %s\n", (const char*)glewGetErrorString(err));
         glfwDestroyWindow(window);
         glfwTerminate();
         return EXIT_FAILURE;
     }
+    
+    glfwSwapInterval(1); // ou pas hein!
 
     // Setup Dear ImGui binding
     IMGUI_CHECKVERSION();
@@ -101,26 +151,49 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    glutils::check_error();
+
     bool show_demo_window = true;
-    bool show_another_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    
+    // FPS
+    auto timer = std::chrono::steady_clock();
+    auto last_time = timer.now();
+    auto last_time_for_dt = last_time;
+    bool should_refresh_fps = false;
+    uint64_t frame_counter = 0;
+    uint64_t fps = 0;
 
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
 
-        // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+        // FPS
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(timer.now() - last_time_for_dt);
+        last_time_for_dt = timer.now();
+        float dt = duration.count() / 1000000.0f;
+        should_refresh_fps = false;
+        ++frame_counter;
+        if (last_time + std::chrono::seconds(1) < timer.now())
+        {
+            last_time = timer.now();
+            fps = frame_counter;
+            frame_counter = 0;
+            should_refresh_fps = true;
+        }
+
+        show_fps_window(should_refresh_fps, fps);
+
         if (show_demo_window)
+        {
             ImGui::ShowDemoWindow(&show_demo_window);
+        }
 
         ImGui::Render();
 
-        // Keep running
         run(window);
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

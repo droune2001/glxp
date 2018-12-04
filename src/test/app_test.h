@@ -15,6 +15,7 @@ class AppTest : public App
 private:
 
     bool load_obj(const char *filename);
+    bool load_shaders();
 };
 
 #endif // _APP_TEST_2018_12_03_H_

@@ -4,6 +4,8 @@
 #include <GLFW/glfw3.h>
 #include "glm_usage.h"
 #include "tiny_obj_loader.h"
+#include "gl_utils.h"
+#include "utils.h"
 
 #include <vector>
 #include <fstream>
@@ -58,8 +60,30 @@ bool AppTest::load_obj(const char *filename)
     }
 }
 
+bool AppTest::load_shaders()
+{
+    auto vs = utils::read_file_content("./simple.vert");
+    auto fs = utils::read_file_content("./simple.frag");
+
+    GLuint vs_id = glCreateShader(GL_VERTEX_SHADER);
+    GLuint fs_id = glCreateShader(GL_FRAGMENT_SHADER);
+
+    glutils::compile_shader(vs_id, vs.data(), vs.size());
+    glutils::compile_shader(fs_id, fs.data(), fs.size());
+
+    GLuint programId = glCreateProgram();
+
+    glutils::link_program(programId, vs_id, fs_id);
+
+    glutils::check_error();
+
+    return true;
+}
+
 bool AppTest::init()
 {
+    //load_shaders();
+
     //std::string filename = "./bunny.obj";
     std::string filename = "sponza.obj";
     //std::string filename = "CornellBox-Original.obj";
@@ -79,6 +103,8 @@ void AppTest::draw(int width, int height)
     glViewport(0, 0, width, height);
     glClearColor(0.2f, 0.2f, 0.2f, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // camera
 
 }
 
