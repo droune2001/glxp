@@ -11,6 +11,10 @@ class AppTest : public App
 
     void onMousePress(int x, int y) override;
     void onKeyboard(GLFWwindow* window, int key, int scancode, int action, int mods) override;
+
+private:
+
+    bool load_obj(const char *filename);
 };
 
 #endif // _APP_TEST_2018_12_03_H_
