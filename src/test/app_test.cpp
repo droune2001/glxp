@@ -11,6 +11,66 @@
 #include <vector>
 #include <fstream>
 
+
+static 
+void add_obj_to_scene(
+    const tinyobj::attrib_t &obj_attribs, 
+    std::vector<tinyobj::shape_t> &obj_shapes,
+    std::vector<tinyobj::material_t> &obj_material,
+    AppTest::object *obj)
+{
+    // First shape only.
+    const auto &shape = obj_shapes[0];
+
+    // index buffer
+    glCreateBuffers(1, &obj->index_buffer_id);
+    std::vector<unsigned int> index_buffer;
+    index_buffer.resize(shape.mesh.indices.size());
+    for (auto index : shape.mesh.indices)
+    {
+        index_buffer.push_back(index.vertex_index);
+    }
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, obj->index_buffer_id);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_buffer.size() * sizeof(unsigned int), index_buffer.data(), GL_STATIC_DRAW);
+
+    obj->nb_elements = index_buffer.size();
+
+    // vertex(positions) buffer
+    glCreateBuffers(1, &obj->position_buffer_id);
+    std::vector<float> position_buffer;
+    position_buffer.resize(obj_attribs.vertices.size());
+    for (auto position : obj_attribs.vertices)
+    {
+        position_buffer.push_back(position);
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, obj->position_buffer_id);
+    glBufferData(GL_ARRAY_BUFFER, position_buffer.size() * sizeof(float), position_buffer.data(), GL_STATIC_DRAW);
+
+    // vertex(color) buffer
+    glCreateBuffers(1, &obj->color_buffer_id);
+    std::vector<float> color_buffer;
+    color_buffer.resize(obj_attribs.colors.size());
+    for (auto color : obj_attribs.colors)
+    {
+        color_buffer.push_back(color);
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, obj->color_buffer_id);
+    glBufferData(GL_ARRAY_BUFFER, color_buffer.size() * sizeof(float), color_buffer.data(), GL_STATIC_DRAW);
+
+    // vertex(texcoords) buffer
+    glCreateBuffers(1, &obj->texcoord_buffer_id);
+    std::vector<float> texcoord_buffer;
+    texcoord_buffer.resize(obj_attribs.texcoords.size());
+    for (auto texcoord : obj_attribs.texcoords)
+    {
+        texcoord_buffer.push_back(texcoord);
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, obj->texcoord_buffer_id);
+    glBufferData(GL_ARRAY_BUFFER, texcoord_buffer.size() * sizeof(float), texcoord_buffer.data(), GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 bool AppTest::load_obj(const char *filename)
 {
     tinyobj::attrib_t obj_attribs;
@@ -56,6 +116,9 @@ bool AppTest::load_obj(const char *filename)
             printf("   [%zd] # of indices  = %zd\n", s, obj_shapes[s].mesh.indices.size());
         }
         printf("# of materials        = %zd\n", obj_material.size());
+
+        // create hardware buffers for all objects in the obj, and add it to the scene container
+        add_obj_to_scene(obj_attribs, obj_shapes, obj_material, &_single_object);
 
         return true;
     }
@@ -224,7 +287,32 @@ void AppTest::run()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // camera
+    glm::mat4 view(1);
+    view = glm::translate(view, glm::vec3(0,0,-100));
 
+    glm::mat4 model(1);
+
+    glm::mat4 proj = glm::perspective(45.0f, 1.33f, 1.0f, 1000.0f);
+
+    glUseProgram(_simple_program.program_id);
+
+    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_model, 1, GL_FALSE, glm::value_ptr(model));
+    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_view, 1, GL_FALSE, glm::value_ptr(view));
+    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_proj, 1, GL_FALSE, glm::value_ptr(proj));
+
+    glBindBuffer(GL_ARRAY_BUFFER, _single_object.position_buffer_id);
+    glVertexAttribPointer(_simple_program.attrib_in_position, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, _single_object.color_buffer_id);
+    glVertexAttribPointer(_simple_program.attrib_in_color, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, _single_object.texcoord_buffer_id);
+    glVertexAttribPointer(_simple_program.attrib_in_texcoord, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _single_object.index_buffer_id);
+    glDrawElements(GL_TRIANGLES, _single_object.nb_elements, GL_UNSIGNED_INT, 0);
+
+    glUseProgram(0);
 }
 
 void AppTest::onWindowSize(GLFWwindow * window, int w, int h)

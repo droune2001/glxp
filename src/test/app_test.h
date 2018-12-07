@@ -5,6 +5,8 @@
 
 class AppTest : public App
 {
+public:
+
     bool init(int framebuffer_width, int framebuffer_height) override;
     void shutdown() override;
     void run() override;
@@ -16,12 +18,22 @@ class AppTest : public App
     void onMouseMove(GLFWwindow* window, double mouse_x, double mouse_y) override;
     void onMouseScroll(GLFWwindow* window, double xoffset, double yoffset) override;
 
+    struct object
+    {
+        unsigned int index_buffer_id = 0;
+        unsigned int position_buffer_id = 0;
+        unsigned int color_buffer_id = 0;
+        unsigned int texcoord_buffer_id = 0;
+
+        unsigned int nb_elements = 0;
+    };
+
 private:
 
     bool load_obj(const char *filename);
     bool load_gltf(const char *filename);
     bool load_shaders();
-
+    
 private:
 
     struct program 
@@ -41,6 +53,7 @@ private:
     };
     
     program _simple_program;
+    object _single_object;
 
     int _window_width = 0;
     int _window_height = 0;
