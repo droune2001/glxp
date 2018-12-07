@@ -42,7 +42,7 @@ void check_error()
     printf("gl error: %s\n", errorStr.c_str());
 }
 
-void compile_shader(GLuint shader, const char* buffer, size_t bufferSize)
+bool compile_shader(GLuint shader, const char* buffer, size_t bufferSize)
 {
     GLint length = (GLint)bufferSize;
     glShaderSource(shader, 1, &buffer, &length);
@@ -61,13 +61,10 @@ void compile_shader(GLuint shader, const char* buffer, size_t bufferSize)
 
     int status;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
-    if (status == GL_FALSE)
-    {
-        throw std::runtime_error("failed to compile shader");
-    }
+    return (status != GL_FALSE);
 }
 
-void link_program(GLuint program, GLuint vertexShader, GLuint fragmentShader)
+bool link_program(GLuint program, GLuint vertexShader, GLuint fragmentShader)
 {
     glAttachShader(program, vertexShader);
     glAttachShader(program, fragmentShader);
@@ -85,10 +82,7 @@ void link_program(GLuint program, GLuint vertexShader, GLuint fragmentShader)
 
     int status;
     glGetProgramiv(program, GL_LINK_STATUS, &status);
-    if (status == GL_FALSE)
-    {
-        throw std::runtime_error("failed to link program");
-    }
+    return (status != GL_FALSE);
 }
 
 } // namespace glutils

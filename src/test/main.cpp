@@ -11,22 +11,41 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-static App *g_App = nullptr;
-
 static
 void error_callback(int error, const char* description)
 {
     printf("Error: %s\n", description);
 }
 
-static 
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+static
+void window_size_callback(GLFWwindow *window, int w, int h)
 {
-    if (g_App)
+    App *app = (App*)glfwGetWindowUserPointer(window);
+    if (app)
     {
-        g_App->onKeyboard(window, key, scancode, action, mods);
+        app->onWindowSize(window, w, h);
     }
-    else
+}
+
+static
+void framebuffer_size_callback(GLFWwindow *window, int w, int h)
+{
+    App *app = (App*)glfwGetWindowUserPointer(window);
+    if (app)
+    {
+        app->onFramebufferSize(window, w, h);
+    }
+}
+
+static
+void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
+{
+    App *app = (App*)glfwGetWindowUserPointer(window);
+    if (app)
+    {
+        app->onKeyboard(window, key, scancode, action, mods);
+    }
+    else // TODO: not necessary
     {
         if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
             glfwSetWindowShouldClose(window, GLFW_TRUE);
@@ -34,20 +53,52 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 static
-bool init()
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
-    return (g_App && g_App->init());
+    App *app = (App*)glfwGetWindowUserPointer(window);
+    if (app)
+    {
+        app->onMouseClick(window, button, action, mods);
+    }
+}
+
+static
+void cursor_pos_callback(GLFWwindow* window, double mouse_x, double mouse_y)
+{
+    App *app = (App*)glfwGetWindowUserPointer(window);
+    if (app)
+    {
+        app->onMouseMove(window, mouse_x, mouse_y);
+    }
+}
+
+static
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    App *app = (App*)glfwGetWindowUserPointer(window);
+    if (app)
+    {
+        app->onMouseScroll(window, xoffset, yoffset);
+    }
+}
+
+static
+bool init(GLFWwindow *window)
+{
+    int w, h;
+    glfwGetFramebufferSize(window, &w, &h);
+
+    App *app = (App*)glfwGetWindowUserPointer(window);
+    return (app && app->init(w, h));
 }
 
 static
 void run(GLFWwindow* window)
 {
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-
-    if (g_App) 
+    App *app = (App*)glfwGetWindowUserPointer(window);
+    if (app)
     {
-        g_App->draw(width, height);
+        app->run();
     }
 }
 
@@ -85,14 +136,14 @@ void show_fps_window(bool should_refresh_fps, uint64_t fps)
 
 int main(int argc, char **argv)
 {
-    g_App = new AppTest();
+    App *app = new AppTest();
 
     if (glfwInit() != GLFW_TRUE)
         return EXIT_FAILURE;
     
     glfwSetErrorCallback(error_callback);
 
-    const char* glsl_version = "#version 460";
+    const char *glsl_version = "#version 460";
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -102,20 +153,20 @@ int main(int argc, char **argv)
     glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
     glfwWindowHint(GLFW_VISIBLE, GL_TRUE);
     glfwWindowHint(GLFW_DECORATED, GL_TRUE);
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "Test", nullptr, nullptr);
+    GLFWwindow *window = glfwCreateWindow(1280, 720, "Test", nullptr, nullptr);
     if (!window)
     {
         glfwTerminate();
         return EXIT_FAILURE;
     }
-    glfwSetWindowUserPointer(window, g_App);
+    glfwSetWindowUserPointer(window, app);
 
-    //glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
-    //glfwSetCursorPosCallback(window, mouseMoveCallback);
-    //glfwSetMouseButtonCallback(window, mousePressCallback);
-    //glfwSetScrollCallback(window, mouseScrollCallback);
-    //glfwSetKeyCallback(window, key_callback);
-    //glfwSetWindowCloseCallback
+    glfwSetWindowSizeCallback(window, window_size_callback);           // which of the two should be called??
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback); // ...
+    glfwSetKeyCallback(window, key_callback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
+    glfwSetCursorPosCallback(window, cursor_pos_callback);
+    glfwSetScrollCallback(window, scroll_callback);
 
     glfwMakeContextCurrent(window);
 
@@ -144,7 +195,7 @@ int main(int argc, char **argv)
     ImGui::StyleColorsDark();
 
     // INIT GL RESOURCES
-    if (!init())
+    if (!init(window))
     {
         glfwDestroyWindow(window);
         glfwTerminate();
@@ -201,11 +252,11 @@ int main(int argc, char **argv)
     }
 
     // Cleanup
-    delete g_App;
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
     glfwDestroyWindow(window);
     glfwTerminate();
+    delete app;
     return EXIT_SUCCESS;
 }
