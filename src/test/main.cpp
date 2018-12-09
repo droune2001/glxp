@@ -93,12 +93,12 @@ bool init(GLFWwindow *window)
 }
 
 static
-void run(GLFWwindow* window)
+void run(GLFWwindow* window, float dt)
 {
     App *app = (App*)glfwGetWindowUserPointer(window);
     if (app)
     {
-        app->run();
+        app->run(dt);
     }
 }
 
@@ -238,14 +238,14 @@ int main(int argc, char **argv)
 
         show_fps_window(should_refresh_fps, fps);
 
-        if (show_demo_window)
-        {
-            ImGui::ShowDemoWindow(&show_demo_window);
-        }
+        //if (show_demo_window)
+        //{
+        //    ImGui::ShowDemoWindow(&show_demo_window);
+        //}
 
         ImGui::Render();
 
-        run(window);
+        run(window, dt);
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);

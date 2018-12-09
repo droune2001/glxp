@@ -1,7 +1,7 @@
 # TODO: find the var for "current sub directory"
 set(CURRENT_TARGET test)
 
-set(SHADER_SOURCE_DIR "${ASSETS_DIR}/${CURRENT_TARGET}")
+set(SHADER_SOURCE_DIR "${ASSETS_DIR}/${CURRENT_TARGET}/shaders")
 
 file( GLOB CURRENT_TARGET_SOURCES "*.c*" )
 file( GLOB CURRENT_TARGET_HEADERS "*.h*" )

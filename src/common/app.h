@@ -9,7 +9,7 @@ public:
     
     virtual bool init(int framebuffer_width, int framebuffer_height) = 0;
     virtual void shutdown() = 0;
-    virtual void run() = 0;
+    virtual void run(float dt) = 0;
 
     // callbacks
     virtual void onWindowSize(GLFWwindow* window, int w, int h) = 0;

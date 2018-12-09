@@ -331,3 +331,4 @@ ASALocalRun/
 
 # GLXP specific
 build/
+data/*/models/

@@ -9,7 +9,7 @@ public:
 
     bool init(int framebuffer_width, int framebuffer_height) override;
     void shutdown() override;
-    void run() override;
+    void run(float dt) override;
 
     void onWindowSize(GLFWwindow* window, int w, int h) override;
     void onFramebufferSize(GLFWwindow* window, int w, int h) override;
@@ -20,6 +20,8 @@ public:
 
     struct object
     {
+        unsigned int vao = 0;
+
         unsigned int index_buffer_id = 0;
         unsigned int position_buffer_id = 0;
         unsigned int color_buffer_id = 0;
@@ -39,11 +41,10 @@ private:
     struct program 
     {
         unsigned int program_id = 0;
-        unsigned int vertex_shader_id = 0;
-        unsigned int fragment_shader_id = 0;
 
         int attrib_in_position = -1;
         int attrib_in_color = -1;
+        int attrib_in_normal = -1;
         int attrib_in_texcoord = -1;
 
         int uni_model = -1;
