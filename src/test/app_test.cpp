@@ -30,9 +30,9 @@ void add_obj_to_scene(
     // compute bbox
     glm::vec3 bbox_min(FLT_MAX, FLT_MAX, FLT_MAX);
     glm::vec3 bbox_max(FLT_MIN, FLT_MIN, FLT_MIN);
-    for (size_t i = 0; i < obj_attribs.vertices.size() / 3; ++i)
+    for (size_t i = 0; i < obj_attribs.vertices.size() / 3; i+=3)
     {
-        glm::vec3 position(obj_attribs.vertices[i + 0], obj_attribs.vertices[i + 1], obj_attribs.vertices[i + 2]);
+        glm::vec3 position(obj_attribs.vertices[3*i + 0], obj_attribs.vertices[3*i + 1], obj_attribs.vertices[3*i + 2]);
         bbox_min = glm::min(bbox_min, position);
         bbox_max = glm::max(bbox_max, position);
     }
@@ -50,10 +50,13 @@ void add_obj_to_scene(
     // index buffer
     glCreateBuffers(1, &obj->index_buffer_id);
     std::vector<unsigned int> index_buffer;
-    index_buffer.resize(shape.mesh.indices.size());
+    index_buffer.reserve(shape.mesh.indices.size());
     for (auto index : shape.mesh.indices)
     {
-        index_buffer.push_back(index.vertex_index);
+        if (index.vertex_index != -1)
+        {
+            index_buffer.push_back(index.vertex_index);
+        }
     }
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, obj->index_buffer_id);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_buffer.size() * sizeof(unsigned int), index_buffer.data(), GL_STATIC_DRAW);
@@ -66,13 +69,14 @@ void add_obj_to_scene(
 
 
 
+
     // vertex(positions) buffer
     glCreateBuffers(1, &obj->position_buffer_id);
     std::vector<float> position_buffer;
-    position_buffer.resize(obj_attribs.vertices.size());
-    for(size_t i = 0; i < obj_attribs.vertices.size()/3; ++i)
+    position_buffer.reserve(obj_attribs.vertices.size());
+    for(size_t i = 0; i < obj_attribs.vertices.size()/3; i+=3)
     {
-        glm::vec3 position(obj_attribs.vertices[i + 0], obj_attribs.vertices[i + 1], obj_attribs.vertices[i + 2]);
+        glm::vec3 position(obj_attribs.vertices[3*i + 0], obj_attribs.vertices[3*i + 1], obj_attribs.vertices[3*i + 2]);
         if (normalize_size)
         {
             position = scale_factor * (position - middle);
@@ -82,15 +86,32 @@ void add_obj_to_scene(
         position_buffer.push_back(position.y);
         position_buffer.push_back(position.z);
     }
-    glBindBuffer(GL_ARRAY_BUFFER, obj->position_buffer_id);
-    glBufferData(GL_ARRAY_BUFFER, position_buffer.size() * sizeof(float), position_buffer.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(0);
+    // init buffer with initial data (and no flags...)
+    glNamedBufferStorage(obj->position_buffer_id, position_buffer.size() * sizeof(float), position_buffer.data(), 0);
+    // bind to vao (bindless version)
+#define POSITION_BINDING_INDEX 0
+    glVertexArrayVertexBuffer(obj->vao, POSITION_BINDING_INDEX, obj->position_buffer_id, 0, 3 * sizeof(float));
+    // specify format
+#define POSITION_SHADER_ATTRIB_INDEX 0 // THIS one is the binding location in the shader.
+    // when using ann interleaved buffer, there will be many binding points in the vao
+    // where we define the strides and offsets, but in the shader all will be bound to
+    // a single attrib, that will be a struct.
+    glVertexArrayAttribFormat(obj->vao, POSITION_SHADER_ATTRIB_INDEX, 3, GL_FLOAT, GL_FALSE, 0);
+    // map a vao attrib index to a shader attrib binding location (?)
+    glVertexArrayAttribBinding(obj->vao, POSITION_BINDING_INDEX, POSITION_SHADER_ATTRIB_INDEX);
 
+    // enable the attribute
+    glEnableVertexArrayAttrib(obj->vao, POSITION_BINDING_INDEX);
+
+    //glBindBuffer(GL_ARRAY_BUFFER, obj->position_buffer_id);
+    //glBufferData(GL_ARRAY_BUFFER, position_buffer.size() * sizeof(float), position_buffer.data(), GL_STATIC_DRAW);
+    //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    //glEnableVertexAttribArray(0);
+#if 0
     // vertex(color) buffer
     glCreateBuffers(1, &obj->color_buffer_id);
     std::vector<float> color_buffer;
-    color_buffer.resize(obj_attribs.colors.size());
+    color_buffer.reserve(obj_attribs.colors.size());
     for (auto color : obj_attribs.colors)
     {
         color_buffer.push_back(color);
@@ -103,7 +124,7 @@ void add_obj_to_scene(
     // vertex(texcoords) buffer
     glCreateBuffers(1, &obj->texcoord_buffer_id);
     std::vector<float> texcoord_buffer;
-    texcoord_buffer.resize(obj_attribs.texcoords.size());
+    texcoord_buffer.reserve(obj_attribs.texcoords.size());
     for (auto texcoord : obj_attribs.texcoords)
     {
         texcoord_buffer.push_back(texcoord);
@@ -112,7 +133,7 @@ void add_obj_to_scene(
     glBufferData(GL_ARRAY_BUFFER, texcoord_buffer.size() * sizeof(float), texcoord_buffer.data(), GL_STATIC_DRAW);
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(3);
-
+#endif
     glBindVertexArray(0); // unbind current VAO
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -324,7 +345,7 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
 
 
 
-
+#if 0
     const glm::vec4 positions[3] = {
         glm::vec4(0.25, -0.25, 0.5, 1.0),
         glm::vec4(-0.25, -0.25, 0.5, 1.0),
@@ -385,7 +406,7 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
         glEnableVertexArrayAttrib(vao, COLOR_BINDING_INDEX);
     }
 
-
+#endif
 
 
 
@@ -418,37 +439,30 @@ void AppTest::run(float dt)
     glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0f, 0);
 
     // camera
-    glm::mat4 view(1);
-    view = glm::translate(view, glm::vec3(0,0,-5));
-
+    glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f,0.0f,-3.0f));
     glm::mat4 model(1);
-
     glm::mat4 proj = glm::perspective(45.0f, 1.33f, 1.0f, 10.0f);
 
-
     glUseProgram(_simple_program.program_id);
+
+    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_model, 1, GL_FALSE, glm::value_ptr(model));
+    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_view, 1, GL_FALSE, glm::value_ptr(view));
+    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_proj, 1, GL_FALSE, glm::value_ptr(proj));
 
     //glBindVertexArray(vao);
     glBindVertexArray(_single_object.vao);
 
+#if 0
     GLint offset_location = glGetAttribLocation(_simple_program.program_id, "offset");
     GLfloat offset_attrib[] = {
         (float)sin(accum) * 0.5f,
         (float)cos(accum) * 0.6f,
         0.0f, 0.0f };
     glVertexAttrib4fv(offset_location, offset_attrib);
+#endif
 
-    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_model, 1, GL_FALSE, glm::value_ptr(model));
-    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_view, 1, GL_FALSE, glm::value_ptr(view));
-    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_proj, 1, GL_FALSE, glm::value_ptr(proj));
-
+    
     //glDrawArrays(GL_TRIANGLES, 0, 3);
-
-
-
-
-
-
 
 
     //glBindBuffer(GL_ARRAY_BUFFER, _single_object.position_buffer_id);
@@ -463,10 +477,11 @@ void AppTest::run(float dt)
     //glVertexAttribPointer(_simple_program.attrib_in_texcoord, 2, GL_FLOAT, GL_FALSE, 0, 0);
     //glEnableVertexAttribArray(_simple_program.attrib_in_texcoord);
 
-    //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _single_object.index_buffer_id);
-    //glDrawElements(GL_TRIANGLES, _single_object.nb_elements, GL_UNSIGNED_INT, 0);
-    glDrawArrays(GL_TRIANGLES, 0, 99);
-    //glUseProgram(0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _single_object.index_buffer_id);
+    glDrawElements(GL_POINTS, _single_object.nb_elements, GL_UNSIGNED_INT, 0);
+
+    glBindVertexArray(0);
+    glUseProgram(0);
 }
 
 void AppTest::onWindowSize(GLFWwindow * window, int w, int h)
