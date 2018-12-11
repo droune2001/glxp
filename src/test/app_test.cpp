@@ -27,7 +27,9 @@ void add_obj_to_scene(
     // First shape only.
     const auto &shape = obj_shapes[0];
 
+    //
     // compute bbox
+    //
     glm::vec3 bbox_min(FLT_MAX, FLT_MAX, FLT_MAX);
     glm::vec3 bbox_max(FLT_MIN, FLT_MIN, FLT_MIN);
     for (size_t i = 0; i < obj_attribs.vertices.size() / 3; i+=3)
@@ -36,45 +38,86 @@ void add_obj_to_scene(
         bbox_min = glm::min(bbox_min, position);
         bbox_max = glm::max(bbox_max, position);
     }
-
     glm::vec3 middle = (bbox_max + bbox_min) / 2.0f;
     float scale_factor = 1.0f / glm::length(bbox_max - middle);
 
-    glCreateVertexArrays(1, &obj->vao);
-    glBindVertexArray(obj->vao);
+    struct vertex
+    {
+        glm::vec4 position; // 3 + ??
+        glm::vec4 normal;  // 3 + ??
+        glm::vec4 diffuse_color;
+        glm::vec4 texcoords; // 2 + ??
+    };
 
-
-
-
-
-    // index buffer
-    glCreateBuffers(1, &obj->index_buffer_id);
+    // convert tinyobj_loader multi-index format to my own interleaved linear format
+    std::vector<vertex> vertex_buffer;
+    vertex_buffer.resize(obj_attribs.vertices.size() / 3); // model triangulated by tinyobj
+    for (size_t i = 0; i < obj_attribs.vertices.size() / 3; ++i)
+    {
+        vertex &v = vertex_buffer[i];
+        v.position = glm::vec4(obj_attribs.vertices[3 * i + 0], obj_attribs.vertices[3 * i + 1], obj_attribs.vertices[3 * i + 2], 1.0f);
+        v.diffuse_color = glm::vec4(obj_attribs.colors[3 * i + 0], obj_attribs.colors[3 * i + 1], obj_attribs.colors[3 * i + 2], 1.0f);
+        if (normalize_size)
+        {
+            v.position.xyz = scale_factor * (v.position.xyz - middle);
+        }
+    }
+    
     std::vector<unsigned int> index_buffer;
     index_buffer.reserve(shape.mesh.indices.size());
     for (auto index : shape.mesh.indices)
     {
         if (index.vertex_index != -1)
         {
+            int vi = index.vertex_index;
+            int ni = index.normal_index;
+            int ti = index.texcoord_index;
+
             index_buffer.push_back(index.vertex_index);
+
+            // complete the vertex buffer with the other attributes, which may be indexed differently.
+            // we may have to duplicate these in the process.
+            vertex &v = vertex_buffer[vi];
+            if (index.normal_index != -1)
+            {
+                v.normal = glm::vec4(obj_attribs.normals[3*ni+0], obj_attribs.normals[3 * ni + 1], obj_attribs.normals[3 * ni + 2], 1.0f);
+            }
+            else
+            {
+                v.normal = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f); // default normal = UP
+            }
+
+            if (index.texcoord_index != -1)
+            {
+                v.texcoords = glm::vec4(obj_attribs.texcoords[2 * ti + 0], obj_attribs.texcoords[2 * ni + 1], 1.0f, 1.0f);
+            }
+            else
+            {
+                v.texcoords = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); // default TC = 0,0
+            }
         }
     }
+
+
+    glCreateVertexArrays(1, &obj->vao);
+    glBindVertexArray(obj->vao);
+
+    //
+    // index buffer
+    //
+    glCreateBuffers(1, &obj->index_buffer_id);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, obj->index_buffer_id);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_buffer.size() * sizeof(unsigned int), index_buffer.data(), GL_STATIC_DRAW);
 
     obj->nb_elements = index_buffer.size();
 
-
-
-
-
-
-
-
+    //
     // vertex(positions) buffer
+    //
     glCreateBuffers(1, &obj->position_buffer_id);
     std::vector<float> position_buffer;
     position_buffer.reserve(obj_attribs.vertices.size());
-    for(size_t i = 0; i < obj_attribs.vertices.size()/3; i+=3)
+    for(size_t i = 0; i < obj_attribs.vertices.size()/3; ++i)
     {
         glm::vec3 position(obj_attribs.vertices[3*i + 0], obj_attribs.vertices[3*i + 1], obj_attribs.vertices[3*i + 2]);
         if (normalize_size)
@@ -478,7 +521,7 @@ void AppTest::run(float dt)
     //glEnableVertexAttribArray(_simple_program.attrib_in_texcoord);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _single_object.index_buffer_id);
-    glDrawElements(GL_POINTS, _single_object.nb_elements, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, _single_object.nb_elements, GL_UNSIGNED_INT, 0);
 
     glBindVertexArray(0);
     glUseProgram(0);
