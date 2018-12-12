@@ -99,8 +99,52 @@ void add_obj_to_scene(
     }
 
 
+    size_t t = offsetof(vertex, normal);
+
     glCreateVertexArrays(1, &obj->vao);
     glBindVertexArray(obj->vao);
+
+    //
+    // vertex buffer
+    //
+#define USE_DSA
+#ifdef USE_DSA
+    glCreateBuffers(1, &obj->vertex_buffer_id);
+    // init buffer with initial data (and no flags...)
+    glNamedBufferStorage(obj->vertex_buffer_id, vertex_buffer.size() * sizeof(vertex), vertex_buffer.data(), 0); //TODO: flags (static draw)
+    // bind to vao (bindless version)
+#define POSITION_BINDING_INDEX 0
+#define NORMAL_BINDING_INDEX   1
+#define COLOR_BINDING_INDEX    2
+#define TEXCOORD_BINDING_INDEX 3
+    glVertexArrayVertexBuffer(obj->vao, POSITION_BINDING_INDEX, obj->vertex_buffer_id, 0, sizeof(vertex));
+    glVertexArrayVertexBuffer(obj->vao, NORMAL_BINDING_INDEX, obj->vertex_buffer_id, offsetof(vertex, normal), sizeof(vertex));
+    glVertexArrayVertexBuffer(obj->vao, COLOR_BINDING_INDEX, obj->vertex_buffer_id, offsetof(vertex, diffuse_color), sizeof(vertex));
+    glVertexArrayVertexBuffer(obj->vao, TEXCOORD_BINDING_INDEX, obj->vertex_buffer_id, offsetof(vertex, texcoords), sizeof(vertex));
+    // specify format
+#define POSITION_SHADER_ATTRIB_INDEX 0 // THIS one is the binding location in the shader.
+#define NORMAL_SHADER_ATTRIB_INDEX 1
+#define COLOR_SHADER_ATTRIB_INDEX 2
+#define TEXCOORD_SHADER_ATTRIB_INDEX 3
+    // when using ann interleaved buffer, there will be many binding points in the vao
+    // where we define the strides and offsets, but in the shader all will be bound to
+    // a single attrib, that will be a struct (not necessarily, can still have N attribs)
+    glVertexArrayAttribFormat(obj->vao, POSITION_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, 0);
+    glVertexArrayAttribFormat(obj->vao, NORMAL_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, normal));
+    glVertexArrayAttribFormat(obj->vao, COLOR_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, diffuse_color));
+    glVertexArrayAttribFormat(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, texcoords));
+    
+    // map a vao attrib index to a shader attrib binding location (?)
+    glVertexArrayAttribBinding(obj->vao, POSITION_BINDING_INDEX, POSITION_SHADER_ATTRIB_INDEX);
+    glVertexArrayAttribBinding(obj->vao, NORMAL_BINDING_INDEX, NORMAL_SHADER_ATTRIB_INDEX);
+    glVertexArrayAttribBinding(obj->vao, COLOR_BINDING_INDEX, COLOR_SHADER_ATTRIB_INDEX);
+    glVertexArrayAttribBinding(obj->vao, TEXCOORD_BINDING_INDEX, TEXCOORD_SHADER_ATTRIB_INDEX);
+
+    // enable the attribute
+    glEnableVertexArrayAttrib(obj->vao, POSITION_BINDING_INDEX);
+    glEnableVertexArrayAttrib(obj->vao, NORMAL_BINDING_INDEX);
+    glEnableVertexArrayAttrib(obj->vao, COLOR_BINDING_INDEX);
+    glEnableVertexArrayAttrib(obj->vao, TEXCOORD_BINDING_INDEX);
 
     //
     // index buffer
@@ -111,74 +155,16 @@ void add_obj_to_scene(
 
     obj->nb_elements = index_buffer.size();
 
-    //
-    // vertex(positions) buffer
-    //
-    glCreateBuffers(1, &obj->position_buffer_id);
-    std::vector<float> position_buffer;
-    position_buffer.reserve(obj_attribs.vertices.size());
-    for(size_t i = 0; i < obj_attribs.vertices.size()/3; ++i)
-    {
-        glm::vec3 position(obj_attribs.vertices[3*i + 0], obj_attribs.vertices[3*i + 1], obj_attribs.vertices[3*i + 2]);
-        if (normalize_size)
-        {
-            position = scale_factor * (position - middle);
-        }
-
-        position_buffer.push_back(position.x);
-        position_buffer.push_back(position.y);
-        position_buffer.push_back(position.z);
-    }
-    // init buffer with initial data (and no flags...)
-    glNamedBufferStorage(obj->position_buffer_id, position_buffer.size() * sizeof(float), position_buffer.data(), 0);
-    // bind to vao (bindless version)
-#define POSITION_BINDING_INDEX 0
-    glVertexArrayVertexBuffer(obj->vao, POSITION_BINDING_INDEX, obj->position_buffer_id, 0, 3 * sizeof(float));
-    // specify format
-#define POSITION_SHADER_ATTRIB_INDEX 0 // THIS one is the binding location in the shader.
-    // when using ann interleaved buffer, there will be many binding points in the vao
-    // where we define the strides and offsets, but in the shader all will be bound to
-    // a single attrib, that will be a struct.
-    glVertexArrayAttribFormat(obj->vao, POSITION_SHADER_ATTRIB_INDEX, 3, GL_FLOAT, GL_FALSE, 0);
-    // map a vao attrib index to a shader attrib binding location (?)
-    glVertexArrayAttribBinding(obj->vao, POSITION_BINDING_INDEX, POSITION_SHADER_ATTRIB_INDEX);
-
-    // enable the attribute
-    glEnableVertexArrayAttrib(obj->vao, POSITION_BINDING_INDEX);
-
-    //glBindBuffer(GL_ARRAY_BUFFER, obj->position_buffer_id);
-    //glBufferData(GL_ARRAY_BUFFER, position_buffer.size() * sizeof(float), position_buffer.data(), GL_STATIC_DRAW);
-    //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    //glEnableVertexAttribArray(0);
-#if 0
-    // vertex(color) buffer
-    glCreateBuffers(1, &obj->color_buffer_id);
-    std::vector<float> color_buffer;
-    color_buffer.reserve(obj_attribs.colors.size());
-    for (auto color : obj_attribs.colors)
-    {
-        color_buffer.push_back(color);
-    }
-    glBindBuffer(GL_ARRAY_BUFFER, obj->color_buffer_id);
-    glBufferData(GL_ARRAY_BUFFER, color_buffer.size() * sizeof(float), color_buffer.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(1);
-
-    // vertex(texcoords) buffer
-    glCreateBuffers(1, &obj->texcoord_buffer_id);
-    std::vector<float> texcoord_buffer;
-    texcoord_buffer.reserve(obj_attribs.texcoords.size());
-    for (auto texcoord : obj_attribs.texcoords)
-    {
-        texcoord_buffer.push_back(texcoord);
-    }
-    glBindBuffer(GL_ARRAY_BUFFER, obj->texcoord_buffer_id);
-    glBufferData(GL_ARRAY_BUFFER, texcoord_buffer.size() * sizeof(float), texcoord_buffer.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(3);
+#else
+    glBindBuffer(GL_ARRAY_BUFFER, obj->position_buffer_id);
+    glBufferData(GL_ARRAY_BUFFER, position_buffer.size() * sizeof(float), position_buffer.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
 #endif
+
     glBindVertexArray(0); // unbind current VAO
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     glutils::check_error();
 }
@@ -357,8 +343,8 @@ bool AppTest::load_shaders()
     _simple_program.program_id = prog_id;
 
     _simple_program.attrib_in_position = glGetAttribLocation(prog_id, "inPosition");
+    _simple_program.attrib_in_normal = glGetAttribLocation(prog_id, "inNormal"); 
     _simple_program.attrib_in_color = glGetAttribLocation(prog_id, "inColor");
-    _simple_program.attrib_in_normal = glGetAttribLocation(prog_id, "inNormal");
     _simple_program.attrib_in_texcoord = glGetAttribLocation(prog_id, "inTexCoord");
 
     _simple_program.uni_model = glGetUniformLocation(prog_id, "model");
@@ -368,7 +354,7 @@ bool AppTest::load_shaders()
 
     return true;
 }
-GLuint vao;
+
 bool AppTest::init(int framebuffer_width, int framebuffer_height)
 {
     _fb_width = framebuffer_width;
@@ -384,75 +370,6 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
     // GLTF
     //std::string filename = "scene.gltf";
     //bool ret = load_gltf(filename.c_str());
-
-
-
-
-#if 0
-    const glm::vec4 positions[3] = {
-        glm::vec4(0.25, -0.25, 0.5, 1.0),
-        glm::vec4(-0.25, -0.25, 0.5, 1.0),
-        glm::vec4(0.25, 0.25, 0.5, 1.0)
-    };
-
-    const glm::vec4 colors[] = {
-        glm::vec4(1.0, 0.0, 0.0, 1.0),
-        glm::vec4(0.0, 1.0, 0.0, 1.0),
-        glm::vec4(0.0, 0.0, 1.0, 1.0)
-    };
-
-    //GLuint vao;
-    glCreateVertexArrays(1, &vao);
-    GLuint vbo[2];
-    glCreateBuffers(2, vbo);
-
-    // POSITION
-    {
-        // init buffer with initial data (and no flags...)
-        glNamedBufferStorage(vbo[0], sizeof(positions) * sizeof(glm::vec4), glm::value_ptr(positions[0]), 0);
-
-        // bind to vao (bindless version)
-        #define POSITION_BINDING_INDEX 0
-        glVertexArrayVertexBuffer(vao, POSITION_BINDING_INDEX, vbo[0], 0, sizeof(glm::vec4));
-
-        // specify format
-        #define POSITION_SHADER_ATTRIB_INDEX 0 // THIS one is the binding location in the shader.
-        // when using ann interleaved buffer, there will be many binding points in the vao
-        // where we define the strides and offsets, but in the shader all will be bound to
-        // a single attrib, that will be a struct.
-        glVertexArrayAttribFormat(vao, POSITION_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, 0);
-
-        // map a vao attrib index to a shader attrib binding location (?)
-        glVertexArrayAttribBinding(vao, POSITION_BINDING_INDEX, POSITION_SHADER_ATTRIB_INDEX);
-
-        // enable the attribute
-        glEnableVertexArrayAttrib(vao, POSITION_BINDING_INDEX);
-    }
-
-    // COLOR
-    {
-        // init buffer with initial data (and no flags...)
-        glNamedBufferStorage(vbo[1], sizeof(colors) * sizeof(glm::vec4), glm::value_ptr(colors[0]), 0);
-
-        // bind to vao (bindless version)
-        #define COLOR_BINDING_INDEX 1
-        glVertexArrayVertexBuffer(vao, COLOR_BINDING_INDEX, vbo[1], 0, sizeof(glm::vec4));
-
-        // specify format
-        #define COLOR_SHADER_ATTRIB_INDEX 1
-        glVertexArrayAttribFormat(vao, COLOR_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, 0);
-
-        // map a vao attrib index to a shader attrib binding location (?)
-        glVertexArrayAttribBinding(vao, COLOR_BINDING_INDEX, COLOR_SHADER_ATTRIB_INDEX);
-
-        // enable the attribute
-        glEnableVertexArrayAttrib(vao, COLOR_BINDING_INDEX);
-    }
-
-#endif
-
-
-
 
     return ret;
 }
@@ -482,9 +399,10 @@ void AppTest::run(float dt)
     glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0f, 0);
 
     // camera
-    glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f,0.0f,-3.0f));
+    glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f,0.0f,-2.0f));
+    view = glm::rotate(view, (float)std::cos(accum), glm::vec3(0,1,0)); // oscillate rotate Y
     glm::mat4 model(1);
-    glm::mat4 proj = glm::perspective(45.0f, 1.33f, 1.0f, 10.0f);
+    glm::mat4 proj = glm::perspective(45.0f, _fb_width/(float)_fb_height, 0.1f, 10.0f);
 
     glUseProgram(_simple_program.program_id);
 
@@ -492,7 +410,6 @@ void AppTest::run(float dt)
     glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_view, 1, GL_FALSE, glm::value_ptr(view));
     glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_proj, 1, GL_FALSE, glm::value_ptr(proj));
 
-    //glBindVertexArray(vao);
     glBindVertexArray(_single_object.vao);
 
 #if 0
@@ -504,24 +421,11 @@ void AppTest::run(float dt)
     glVertexAttrib4fv(offset_location, offset_attrib);
 #endif
 
-    
-    //glDrawArrays(GL_TRIANGLES, 0, 3);
+    glEnable(GL_DEPTH_TEST);
 
-
-    //glBindBuffer(GL_ARRAY_BUFFER, _single_object.position_buffer_id);
-    //glVertexAttribPointer(_simple_program.attrib_in_position, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    //glEnableVertexAttribArray(_simple_program.attrib_in_position);
-
-    //glBindBuffer(GL_ARRAY_BUFFER, _single_object.color_buffer_id);
-    //glVertexAttribPointer(_simple_program.attrib_in_color, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    //glEnableVertexAttribArray(_simple_program.attrib_in_color);
-
-    //glBindBuffer(GL_ARRAY_BUFFER, _single_object.texcoord_buffer_id);
-    //glVertexAttribPointer(_simple_program.attrib_in_texcoord, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    //glEnableVertexAttribArray(_simple_program.attrib_in_texcoord);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _single_object.index_buffer_id);
     glDrawElements(GL_TRIANGLES, _single_object.nb_elements, GL_UNSIGNED_INT, 0);
+
+    glDisable(GL_DEPTH_TEST);
 
     glBindVertexArray(0);
     glUseProgram(0);

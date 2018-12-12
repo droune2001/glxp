@@ -23,9 +23,7 @@ public:
         unsigned int vao = 0;
 
         unsigned int index_buffer_id = 0;
-        unsigned int position_buffer_id = 0;
-        unsigned int color_buffer_id = 0;
-        unsigned int texcoord_buffer_id = 0;
+        unsigned int vertex_buffer_id = 0;
 
         unsigned int nb_elements = 0;
     };
