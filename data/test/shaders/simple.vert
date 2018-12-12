@@ -35,7 +35,7 @@ void main()
     gl_Position = proj * view * model * vec4(inPosition.xyz,1);
     vs_out.color = inColor;
     mat4 modelViewInverseTranspose = transpose(inverse(view * model));
-    //vs_out.normal = (modelViewInverseTranspose * vec4(inNormal.xyz,0)).xyz;
-    vs_out.normal = inNormal.xyz;
+    vs_out.normal = (modelViewInverseTranspose * vec4(inNormal.xyz,0)).xyz;
+    //vs_out.normal = inNormal.xyz;
     vs_out.tc = inTexCoord.xy;
 }

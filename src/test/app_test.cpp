@@ -109,42 +109,39 @@ void add_obj_to_scene(
     //
 #define USE_DSA
 #ifdef USE_DSA
-    glCreateBuffers(1, &obj->vertex_buffer_id);
-    // init buffer with initial data (and no flags...)
-    glNamedBufferStorage(obj->vertex_buffer_id, vertex_buffer.size() * sizeof(vertex), vertex_buffer.data(), 0); //TODO: flags (static draw)
-    // bind to vao (bindless version)
-#define POSITION_BINDING_INDEX 0
-#define NORMAL_BINDING_INDEX   1
-#define COLOR_BINDING_INDEX    2
-#define TEXCOORD_BINDING_INDEX 3
-    glVertexArrayVertexBuffer(obj->vao, POSITION_BINDING_INDEX, obj->vertex_buffer_id, 0, sizeof(vertex));
-    glVertexArrayVertexBuffer(obj->vao, NORMAL_BINDING_INDEX, obj->vertex_buffer_id, offsetof(vertex, normal), sizeof(vertex));
-    glVertexArrayVertexBuffer(obj->vao, COLOR_BINDING_INDEX, obj->vertex_buffer_id, offsetof(vertex, diffuse_color), sizeof(vertex));
-    glVertexArrayVertexBuffer(obj->vao, TEXCOORD_BINDING_INDEX, obj->vertex_buffer_id, offsetof(vertex, texcoords), sizeof(vertex));
-    // specify format
+
+#define MAIN_VBO_BINDING_INDEX 0
+
 #define POSITION_SHADER_ATTRIB_INDEX 0 // THIS one is the binding location in the shader.
 #define NORMAL_SHADER_ATTRIB_INDEX 1
 #define COLOR_SHADER_ATTRIB_INDEX 2
 #define TEXCOORD_SHADER_ATTRIB_INDEX 3
-    // when using ann interleaved buffer, there will be many binding points in the vao
-    // where we define the strides and offsets, but in the shader all will be bound to
-    // a single attrib, that will be a struct (not necessarily, can still have N attribs)
+
+    glCreateBuffers(1, &obj->vertex_buffer_id);
+
+    // init buffer with initial data (flags == 0 -> STATIC_DRAW, no map permitted.)
+    glNamedBufferStorage(obj->vertex_buffer_id, vertex_buffer.size() * sizeof(vertex), vertex_buffer.data(), 0);
+    
+    // Add a VBO to the VAO.The offset is the global offset of the beginning of the first struct, not individual components.
+    glVertexArrayVertexBuffer(obj->vao, MAIN_VBO_BINDING_INDEX, obj->vertex_buffer_id, 0, sizeof(vertex));
+    
+    // Specify format. The offsets are for individual components, relative to the beginning of the struct.
     glVertexArrayAttribFormat(obj->vao, POSITION_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, 0);
     glVertexArrayAttribFormat(obj->vao, NORMAL_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, normal));
     glVertexArrayAttribFormat(obj->vao, COLOR_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, diffuse_color));
     glVertexArrayAttribFormat(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, texcoords));
     
-    // map a vao attrib index to a shader attrib binding location (?)
-    glVertexArrayAttribBinding(obj->vao, POSITION_BINDING_INDEX, POSITION_SHADER_ATTRIB_INDEX);
-    glVertexArrayAttribBinding(obj->vao, NORMAL_BINDING_INDEX, NORMAL_SHADER_ATTRIB_INDEX);
-    glVertexArrayAttribBinding(obj->vao, COLOR_BINDING_INDEX, COLOR_SHADER_ATTRIB_INDEX);
-    glVertexArrayAttribBinding(obj->vao, TEXCOORD_BINDING_INDEX, TEXCOORD_SHADER_ATTRIB_INDEX);
+    // map a vao attrib index to a shader attrib binding locations.
+    glVertexArrayAttribBinding(obj->vao, POSITION_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
+    glVertexArrayAttribBinding(obj->vao, NORMAL_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
+    glVertexArrayAttribBinding(obj->vao, COLOR_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
+    glVertexArrayAttribBinding(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
 
     // enable the attribute
-    glEnableVertexArrayAttrib(obj->vao, POSITION_BINDING_INDEX);
-    glEnableVertexArrayAttrib(obj->vao, NORMAL_BINDING_INDEX);
-    glEnableVertexArrayAttrib(obj->vao, COLOR_BINDING_INDEX);
-    glEnableVertexArrayAttrib(obj->vao, TEXCOORD_BINDING_INDEX);
+    glEnableVertexArrayAttrib(obj->vao, POSITION_SHADER_ATTRIB_INDEX);
+    glEnableVertexArrayAttrib(obj->vao, NORMAL_SHADER_ATTRIB_INDEX);
+    glEnableVertexArrayAttrib(obj->vao, COLOR_SHADER_ATTRIB_INDEX);
+    glEnableVertexArrayAttrib(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX);
 
     //
     // index buffer
