@@ -360,8 +360,8 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
     load_shaders();
 
     // OBJ
-    std::string filename = models_path + "bunny.obj";
-    //std::string filename = "sponza.obj";
+    //std::string filename = models_path + "bunny.obj";
+    std::string filename = models_path + "sponza.obj";
     bool ret = load_obj(filename.c_str());
 
     // GLTF
