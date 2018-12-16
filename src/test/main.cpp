@@ -40,25 +40,30 @@ void framebuffer_size_callback(GLFWwindow *window, int w, int h)
 static
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
-    App *app = (App*)glfwGetWindowUserPointer(window);
-    if (app)
+    ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
+    ImGuiIO& io = ImGui::GetIO();
+    if (!io.WantCaptureKeyboard)
     {
-        app->onKeyboard(window, key, scancode, action, mods);
-    }
-    else // TODO: not necessary
-    {
-        if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        App *app = (App*)glfwGetWindowUserPointer(window);
+        if (app)
+        {
+            app->onKeyboard(window, key, scancode, action, mods);
+        }
     }
 }
 
 static
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
-    App *app = (App*)glfwGetWindowUserPointer(window);
-    if (app)
+    ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
+    ImGuiIO& io = ImGui::GetIO();
+    if (!io.WantCaptureMouse)
     {
-        app->onMouseClick(window, button, action, mods);
+        App *app = (App*)glfwGetWindowUserPointer(window);
+        if (app)
+        {
+            app->onMouseClick(window, button, action, mods);
+        }
     }
 }
 
@@ -75,11 +80,22 @@ void cursor_pos_callback(GLFWwindow* window, double mouse_x, double mouse_y)
 static
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
-    App *app = (App*)glfwGetWindowUserPointer(window);
-    if (app)
+    ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
+    ImGuiIO& io = ImGui::GetIO();
+    if (!io.WantCaptureMouse)
     {
-        app->onMouseScroll(window, xoffset, yoffset);
+        App *app = (App*)glfwGetWindowUserPointer(window);
+        if (app)
+        {
+            app->onMouseScroll(window, xoffset, yoffset);
+        }
     }
+}
+
+static
+void char_callback(GLFWwindow *window, unsigned int c)
+{
+    ImGui_ImplGlfw_CharCallback(window, c);
 }
 
 static
@@ -167,6 +183,14 @@ int main(int argc, char **argv)
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_pos_callback);
     glfwSetScrollCallback(window, scroll_callback);
+    glfwSetCharCallback(window, char_callback);
+
+    // ImGui
+    //glfwSetMouseButtonCallback(window, ImGui_ImplGlfw_MouseButtonCallback);
+    //glfwSetScrollCallback(window, ImGui_ImplGlfw_ScrollCallback);
+    //glfwSetKeyCallback(window, ImGui_ImplGlfw_KeyCallback);
+    //glfwSetCharCallback(window, ImGui_ImplGlfw_CharCallback);
+
 
     glfwMakeContextCurrent(window);
 
@@ -189,7 +213,7 @@ int main(int argc, char **argv)
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;   // Enable Gamepad Controls
 
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplGlfw_InitForOpenGL(window, false); // do not install callbacks, copy imgui code in my callbacks.
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     ImGui::StyleColorsDark();

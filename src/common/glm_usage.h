@@ -7,4 +7,7 @@
 #include <glm/gtc/matrix_transform.hpp> // glm::perspective
 #include <glm/gtc/type_ptr.hpp> // glm::value_ptr
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/quaternion.hpp>
+
 #endif // _GLM_USAGE_2018_26_07_H_

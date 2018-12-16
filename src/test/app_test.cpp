@@ -357,11 +357,20 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
     _fb_width = framebuffer_width;
     _fb_height = framebuffer_height;
 
+    _camera.viewport = glm::ivec4(0, 0, _fb_width, _fb_height); // full framebuffer viewport
+    _camera.target = glm::vec3(0,0,0);
+    _camera.eye = glm::vec3(0.0f, 0.0f, 3.0f);
+    _camera.near_plane = 1.0f;
+    _camera.far_plane = 100.0f;
+    _camera.fovy_degrees = 45.0f;
+    _camera.update(); // build initial matrices
+    _camera.setup(0.5f); // eye must be set.
+
     load_shaders();
 
     // OBJ
-    //std::string filename = models_path + "bunny.obj";
-    std::string filename = models_path + "sponza.obj";
+    std::string filename = models_path + "bunny.obj";
+    //std::string filename = models_path + "sponza.obj";
     bool ret = load_obj(filename.c_str());
 
     // GLTF
@@ -387,7 +396,17 @@ void AppTest::run(float dt)
     static float accum = 0.0f;
     accum += dt;
 
-    glViewport(0, 0, _fb_width, _fb_height);
+    //
+    // update
+    //
+    _camera.update(); // rebuild matrices
+
+    //
+    // draw
+    //
+
+    glViewport(_camera.viewport[0], _camera.viewport[1], _camera.viewport[2], _camera.viewport[3]);
+
     const GLfloat clear_color[] = { 
         (float)std::sin(accum) * 0.5f + 0.5f,
         (float)std::cos(accum) * 0.5f + 0.5f,
@@ -396,27 +415,16 @@ void AppTest::run(float dt)
     glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0f, 0);
 
     // camera
-    glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f,0.0f,-2.0f));
-    view = glm::rotate(view, (float)std::cos(accum), glm::vec3(0,1,0)); // oscillate rotate Y
+    
     glm::mat4 model(1);
-    glm::mat4 proj = glm::perspective(45.0f, _fb_width/(float)_fb_height, 0.1f, 10.0f);
-
+    
     glUseProgram(_simple_program.program_id);
 
     glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_model, 1, GL_FALSE, glm::value_ptr(model));
-    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_view, 1, GL_FALSE, glm::value_ptr(view));
-    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_proj, 1, GL_FALSE, glm::value_ptr(proj));
+    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_view, 1, GL_FALSE, glm::value_ptr(_camera.view));
+    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_proj, 1, GL_FALSE, glm::value_ptr(_camera.proj));
 
     glBindVertexArray(_single_object.vao);
-
-#if 0
-    GLint offset_location = glGetAttribLocation(_simple_program.program_id, "offset");
-    GLfloat offset_attrib[] = {
-        (float)sin(accum) * 0.5f,
-        (float)cos(accum) * 0.6f,
-        0.0f, 0.0f };
-    glVertexAttrib4fv(offset_location, offset_attrib);
-#endif
 
     glEnable(GL_DEPTH_TEST);
 
@@ -461,7 +469,11 @@ void AppTest::onKeyboard(GLFWwindow * window, int key, int scancode, int action,
             mv_z += 1;
         else if (key == GLFW_KEY_N)
             mv_z += -1;
-        // camera.move(mv_x * 0.05, mv_y * 0.05, mv_z * 0.05);
+
+        // pourrave, juste pour test.
+        // TODO: record un vecteur unitaire d'impulse, et appliquer ca avec la speed
+        // de la camera au moment du update.
+        _camera.translate(glm::vec3(mv_x * 0.05f, mv_y * 0.05f, mv_z * 0.05f));
         
         // Close window
         if (key == GLFW_KEY_Q || key == GLFW_KEY_ESCAPE)
@@ -475,61 +487,38 @@ void AppTest::onMouseClick(GLFWwindow* window, int button, int action, int mods)
 {
     (void)window;
     (void)mods;
-    //if (button == GLFW_MOUSE_BUTTON_LEFT) {
-    //    if (action == GLFW_PRESS) {
-    //        mouseLeftPressed = true;
-    //        trackball(prev_quat, 0.0, 0.0, 0.0, 0.0);
-    //    }
-    //    else if (action == GLFW_RELEASE) {
-    //        mouseLeftPressed = false;
-    //    }
-    //}
-    //if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-    //    if (action == GLFW_PRESS) {
-    //        mouseRightPressed = true;
-    //    }
-    //    else if (action == GLFW_RELEASE) {
-    //        mouseRightPressed = false;
-    //    }
-    //}
-    //if (button == GLFW_MOUSE_BUTTON_MIDDLE) {
-    //    if (action == GLFW_PRESS) {
-    //        mouseMiddlePressed = true;
-    //    }
-    //    else if (action == GLFW_RELEASE) {
-    //        mouseMiddlePressed = false;
-    //    }
-    //}
+    if (button == GLFW_MOUSE_BUTTON_LEFT) 
+    {
+        if (action == GLFW_PRESS) 
+        {
+            _mouse_pressed = true;
+            // TODO: why doubles??? convert all to int.
+            double invert_y = ((double)_fb_height - _mouse_y) - 1.0;
+            _camera.start(_mouse_x, invert_y);
+        }
+        else if (action == GLFW_RELEASE) 
+        {
+            _mouse_pressed = false;
+        }
+    }
+
+    //if (button == GLFW_MOUSE_BUTTON_RIGHT)
+    //if (button == GLFW_MOUSE_BUTTON_MIDDLE)
 }
 
 void AppTest::onMouseMove(GLFWwindow* window, double mouse_x, double mouse_y)
 {
-    //(void)window;
-    //float rotScale = 1.0f;
-    //float transScale = 2.0f;
+    (void)window;
 
-    //if (mouseLeftPressed) {
-    //    trackball(prev_quat, rotScale * (2.0f * prevMouseX - width) / (float)width,
-    //              rotScale * (height - 2.0f * prevMouseY) / (float)height,
-    //              rotScale * (2.0f * mouse_x - width) / (float)width,
-    //              rotScale * (height - 2.0f * mouse_y) / (float)height);
+    if (_mouse_pressed) 
+    {
+        double invert_y = ((double)_fb_height - _mouse_y) - 1.0;
+        _camera.move(mouse_x, invert_y);
+    }
 
-    //    add_quats(prev_quat, curr_quat, curr_quat);
-    //}
-    //else if (mouseMiddlePressed) {
-    //    eye[0] -= transScale * (mouse_x - prevMouseX) / (float)width;
-    //    lookat[0] -= transScale * (mouse_x - prevMouseX) / (float)width;
-    //    eye[1] += transScale * (mouse_y - prevMouseY) / (float)height;
-    //    lookat[1] += transScale * (mouse_y - prevMouseY) / (float)height;
-    //}
-    //else if (mouseRightPressed) {
-    //    eye[2] += transScale * (mouse_y - prevMouseY) / (float)height;
-    //    lookat[2] += transScale * (mouse_y - prevMouseY) / (float)height;
-    //}
-
-    //// Update mouse point
-    //prevMouseX = mouse_x;
-    //prevMouseY = mouse_y;
+    // Update mouse point
+    _mouse_x = mouse_x;
+    _mouse_y = mouse_y;
 }
 
 void AppTest::onMouseScroll(GLFWwindow* window, double xoffset, double yoffset)

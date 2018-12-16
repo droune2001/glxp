@@ -1,7 +1,19 @@
 #ifndef _APP_TEST_2018_12_03_H_
 #define _APP_TEST_2018_12_03_H_
 
+/* TODO:
+    - ArcBall Camera.
+
+*/
+
+
+
+
+
+
+
 #include "app.h"
+#include "arcball_camera.h"
 
 class AppTest : public App
 {
@@ -53,6 +65,11 @@ private:
     
     program _simple_program;
     object _single_object;
+
+    double _mouse_x = 0;
+    double _mouse_y = 0;
+    bool _mouse_pressed = false;
+    ArcballCamera _camera;
 
     int _window_width = 0;
     int _window_height = 0;
