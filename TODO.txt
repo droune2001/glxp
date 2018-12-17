@@ -1,0 +1,22 @@
+
+HDR Tonemapping:
+---------------
+- Luminance Histogram (compute shaders)
+  - http://alextardif.com/HistogramLuminance.html
+- ACES, Filmic, Reinhardt
+
+Cascaded ShadowMaps:
+-------------------
+
+Screen Space Reflexions:
+-----------------------
+
+Depth of Field:
+--------------
+
+SSAO:
+----
+
+Temporal Reprojection xxx:
+-------------------------
+
