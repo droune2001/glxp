@@ -1,6 +1,27 @@
 
+------------
+|| COMMON ||
+------------
+
+- Texture load.
+- Procedural stock geometry.
+- FBO facility + render to FBO and blit final quad.
+- Picking (= global map of objects)
+
+
+
+----------
+||  FX  ||
+----------
+
+Object contour for selection:
+----------------------------
+- [picking]
+- Draw object bigger flat color first + no depth, then classic render on top.
+
 HDR Tonemapping:
 ---------------
+- [FBO]
 - Luminance Histogram (compute shaders)
   - http://alextardif.com/HistogramLuminance.html
 - ACES, Filmic, Reinhardt

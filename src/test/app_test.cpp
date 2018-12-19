@@ -16,97 +16,104 @@
 static std::string models_path = "../../../data/test/models/";
 static std::string shaders_path = "../../../data/test/shaders/";
 
-static 
-void add_obj_to_scene(
+void AppTest::add_OBJ_to_scene(
     const tinyobj::attrib_t &obj_attribs, 
     std::vector<tinyobj::shape_t> &obj_shapes,
     std::vector<tinyobj::material_t> &obj_material,
-    AppTest::object *obj,
     bool normalize_size)
 {
-    // First shape only.
-    const auto &shape = obj_shapes[0];
-
-    //
-    // compute bbox
-    //
-    glm::vec3 bbox_min(FLT_MAX, FLT_MAX, FLT_MAX);
-    glm::vec3 bbox_max(FLT_MIN, FLT_MIN, FLT_MIN);
-    for (size_t i = 0; i < obj_attribs.vertices.size() / 3; i+=3)
+    for (const auto &shape : obj_shapes)
     {
-        glm::vec3 position(obj_attribs.vertices[3*i + 0], obj_attribs.vertices[3*i + 1], obj_attribs.vertices[3*i + 2]);
-        bbox_min = glm::min(bbox_min, position);
-        bbox_max = glm::max(bbox_max, position);
-    }
-    glm::vec3 middle = (bbox_max + bbox_min) / 2.0f;
-    float scale_factor = 1.0f / glm::length(bbox_max - middle);
-
-    struct vertex
-    {
-        glm::vec4 position; // 3 + ??
-        glm::vec4 normal;  // 3 + ??
-        glm::vec4 diffuse_color;
-        glm::vec4 texcoords; // 2 + ??
-    };
-
-    // convert tinyobj_loader multi-index format to my own interleaved linear format
-    std::vector<vertex> vertex_buffer;
-    vertex_buffer.resize(obj_attribs.vertices.size() / 3); // model triangulated by tinyobj
-    for (size_t i = 0; i < obj_attribs.vertices.size() / 3; ++i)
-    {
-        vertex &v = vertex_buffer[i];
-        v.position = glm::vec4(obj_attribs.vertices[3 * i + 0], obj_attribs.vertices[3 * i + 1], obj_attribs.vertices[3 * i + 2], 1.0f);
-        v.diffuse_color = glm::vec4(obj_attribs.colors[3 * i + 0], obj_attribs.colors[3 * i + 1], obj_attribs.colors[3 * i + 2], 1.0f);
-        if (normalize_size)
+        const auto &object_name = shape.name;
+        if (_m_objects.find(object_name) == _m_objects.end())
         {
-            v.position.xyz = scale_factor * (v.position.xyz - middle);
+            auto new_object = std::make_shared<DrawItem>();
+            _v_objects.push_back(new_object);
+            _m_objects[object_name] = new_object;
         }
-    }
-    
-    std::vector<unsigned int> index_buffer;
-    index_buffer.reserve(shape.mesh.indices.size());
-    for (auto index : shape.mesh.indices)
-    {
-        if (index.vertex_index != -1)
+
+        auto obj = _m_objects[object_name];
+
+        //
+        // compute bbox
+        //
+        glm::vec3 bbox_min(FLT_MAX, FLT_MAX, FLT_MAX);
+        glm::vec3 bbox_max(FLT_MIN, FLT_MIN, FLT_MIN);
+        for (size_t i = 0; i < obj_attribs.vertices.size() / 3; i += 3)
         {
-            int vi = index.vertex_index;
-            int ni = index.normal_index;
-            int ti = index.texcoord_index;
+            glm::vec3 position(obj_attribs.vertices[3 * i + 0], obj_attribs.vertices[3 * i + 1], obj_attribs.vertices[3 * i + 2]);
+            bbox_min = glm::min(bbox_min, position);
+            bbox_max = glm::max(bbox_max, position);
+        }
+        glm::vec3 middle = (bbox_max + bbox_min) / 2.0f;
+        float scale_factor = 1.0f / glm::length(bbox_max - middle);
 
-            index_buffer.push_back(index.vertex_index);
+        struct vertex
+        {
+            glm::vec4 position; // 3 + ??
+            glm::vec4 normal;  // 3 + ??
+            glm::vec4 diffuse_color;
+            glm::vec4 texcoords; // 2 + ??
+        };
 
-            // complete the vertex buffer with the other attributes, which may be indexed differently.
-            // we may have to duplicate these in the process.
-            vertex &v = vertex_buffer[vi];
-            if (index.normal_index != -1)
+        // convert tinyobj_loader multi-index format to my own interleaved linear format
+        std::vector<vertex> vertex_buffer;
+        vertex_buffer.resize(obj_attribs.vertices.size() / 3); // model triangulated by tinyobj
+        for (size_t i = 0; i < obj_attribs.vertices.size() / 3; ++i)
+        {
+            vertex &v = vertex_buffer[i];
+            v.position = glm::vec4(obj_attribs.vertices[3 * i + 0], obj_attribs.vertices[3 * i + 1], obj_attribs.vertices[3 * i + 2], 1.0f);
+            v.diffuse_color = glm::vec4(obj_attribs.colors[3 * i + 0], obj_attribs.colors[3 * i + 1], obj_attribs.colors[3 * i + 2], 1.0f);
+            if (normalize_size)
             {
-                v.normal = glm::vec4(obj_attribs.normals[3*ni+0], obj_attribs.normals[3 * ni + 1], obj_attribs.normals[3 * ni + 2], 1.0f);
-            }
-            else
-            {
-                v.normal = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f); // default normal = UP
-            }
-
-            if (index.texcoord_index != -1)
-            {
-                v.texcoords = glm::vec4(obj_attribs.texcoords[2 * ti + 0], obj_attribs.texcoords[2 * ni + 1], 1.0f, 1.0f);
-            }
-            else
-            {
-                v.texcoords = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); // default TC = 0,0
+                v.position.xyz = scale_factor * (v.position.xyz - middle);
             }
         }
-    }
+
+        std::vector<unsigned int> index_buffer;
+        index_buffer.reserve(shape.mesh.indices.size());
+        for (auto index : shape.mesh.indices)
+        {
+            if (index.vertex_index != -1)
+            {
+                int vi = index.vertex_index;
+                int ni = index.normal_index;
+                int ti = index.texcoord_index;
+
+                index_buffer.push_back(index.vertex_index);
+
+                // complete the vertex buffer with the other attributes, which may be indexed differently.
+                // we may have to duplicate these in the process.
+                vertex &v = vertex_buffer[vi];
+                if (index.normal_index != -1)
+                {
+                    v.normal = glm::vec4(obj_attribs.normals[3 * ni + 0], obj_attribs.normals[3 * ni + 1], obj_attribs.normals[3 * ni + 2], 1.0f);
+                }
+                else
+                {
+                    v.normal = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f); // default normal = UP
+                }
+
+                if (index.texcoord_index != -1)
+                {
+                    v.texcoords = glm::vec4(obj_attribs.texcoords[2 * ti + 0], obj_attribs.texcoords[2 * ni + 1], 1.0f, 1.0f);
+                }
+                else
+                {
+                    v.texcoords = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); // default TC = 0,0
+                }
+            }
+        }
 
 
-    size_t t = offsetof(vertex, normal);
+        size_t t = offsetof(vertex, normal);
 
-    glCreateVertexArrays(1, &obj->vao);
-    glBindVertexArray(obj->vao);
+        glCreateVertexArrays(1, &obj->vao);
+        glBindVertexArray(obj->vao);
 
-    //
-    // vertex buffer
-    //
+        //
+        // vertex buffer
+        //
 #define USE_DSA
 #ifdef USE_DSA
 
@@ -117,53 +124,54 @@ void add_obj_to_scene(
 #define COLOR_SHADER_ATTRIB_INDEX 2
 #define TEXCOORD_SHADER_ATTRIB_INDEX 3
 
-    glCreateBuffers(1, &obj->vertex_buffer_id);
+        glCreateBuffers(1, &obj->vertex_buffer_id);
 
-    // init buffer with initial data (flags == 0 -> STATIC_DRAW, no map permitted.)
-    glNamedBufferStorage(obj->vertex_buffer_id, vertex_buffer.size() * sizeof(vertex), vertex_buffer.data(), 0);
-    
-    // Add a VBO to the VAO.The offset is the global offset of the beginning of the first struct, not individual components.
-    glVertexArrayVertexBuffer(obj->vao, MAIN_VBO_BINDING_INDEX, obj->vertex_buffer_id, 0, sizeof(vertex));
-    
-    // Specify format. The offsets are for individual components, relative to the beginning of the struct.
-    glVertexArrayAttribFormat(obj->vao, POSITION_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, 0);
-    glVertexArrayAttribFormat(obj->vao, NORMAL_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, normal));
-    glVertexArrayAttribFormat(obj->vao, COLOR_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, diffuse_color));
-    glVertexArrayAttribFormat(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, texcoords));
-    
-    // map a vao attrib index to a shader attrib binding locations.
-    glVertexArrayAttribBinding(obj->vao, POSITION_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
-    glVertexArrayAttribBinding(obj->vao, NORMAL_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
-    glVertexArrayAttribBinding(obj->vao, COLOR_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
-    glVertexArrayAttribBinding(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
+        // init buffer with initial data (flags == 0 -> STATIC_DRAW, no map permitted.)
+        glNamedBufferStorage(obj->vertex_buffer_id, vertex_buffer.size() * sizeof(vertex), vertex_buffer.data(), 0);
 
-    // enable the attribute
-    glEnableVertexArrayAttrib(obj->vao, POSITION_SHADER_ATTRIB_INDEX);
-    glEnableVertexArrayAttrib(obj->vao, NORMAL_SHADER_ATTRIB_INDEX);
-    glEnableVertexArrayAttrib(obj->vao, COLOR_SHADER_ATTRIB_INDEX);
-    glEnableVertexArrayAttrib(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX);
+        // Add a VBO to the VAO.The offset is the global offset of the beginning of the first struct, not individual components.
+        glVertexArrayVertexBuffer(obj->vao, MAIN_VBO_BINDING_INDEX, obj->vertex_buffer_id, 0, sizeof(vertex));
 
-    //
-    // index buffer
-    //
-    glCreateBuffers(1, &obj->index_buffer_id);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, obj->index_buffer_id);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_buffer.size() * sizeof(unsigned int), index_buffer.data(), GL_STATIC_DRAW);
+        // Specify format. The offsets are for individual components, relative to the beginning of the struct.
+        glVertexArrayAttribFormat(obj->vao, POSITION_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, 0);
+        glVertexArrayAttribFormat(obj->vao, NORMAL_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, normal));
+        glVertexArrayAttribFormat(obj->vao, COLOR_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, diffuse_color));
+        glVertexArrayAttribFormat(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, texcoords));
 
-    obj->nb_elements = index_buffer.size();
+        // map a vao attrib index to a shader attrib binding locations.
+        glVertexArrayAttribBinding(obj->vao, POSITION_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
+        glVertexArrayAttribBinding(obj->vao, NORMAL_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
+        glVertexArrayAttribBinding(obj->vao, COLOR_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
+        glVertexArrayAttribBinding(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
+
+        // enable the attribute
+        glEnableVertexArrayAttrib(obj->vao, POSITION_SHADER_ATTRIB_INDEX);
+        glEnableVertexArrayAttrib(obj->vao, NORMAL_SHADER_ATTRIB_INDEX);
+        glEnableVertexArrayAttrib(obj->vao, COLOR_SHADER_ATTRIB_INDEX);
+        glEnableVertexArrayAttrib(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX);
+
+        //
+        // index buffer
+        //
+        glCreateBuffers(1, &obj->index_buffer_id);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, obj->index_buffer_id);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_buffer.size() * sizeof(unsigned int), index_buffer.data(), GL_STATIC_DRAW);
+
+        obj->nb_elements = index_buffer.size();
 
 #else
-    glBindBuffer(GL_ARRAY_BUFFER, obj->position_buffer_id);
-    glBufferData(GL_ARRAY_BUFFER, position_buffer.size() * sizeof(float), position_buffer.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, obj->position_buffer_id);
+        glBufferData(GL_ARRAY_BUFFER, position_buffer.size() * sizeof(float), position_buffer.data(), GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+        glEnableVertexAttribArray(0);
 #endif
 
-    glBindVertexArray(0); // unbind current VAO
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        glBindVertexArray(0); // unbind current VAO
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-    glutils::check_error();
+        glutils::check_error();
+    }
 }
 
 bool AppTest::load_obj(const char *filename)
@@ -213,7 +221,7 @@ bool AppTest::load_obj(const char *filename)
         printf("# of materials        = %zd\n", obj_material.size());
 
         // create hardware buffers for all objects in the obj, and add it to the scene container
-        add_obj_to_scene(obj_attribs, obj_shapes, obj_material, &_single_object, true);
+        add_OBJ_to_scene(obj_attribs, obj_shapes, obj_material, true);
 
         return true;
     }
@@ -388,7 +396,10 @@ void AppTest::shutdown()
     // release buffers
 
     // release vao
-    glDeleteVertexArrays(1, &_single_object.vao);
+    for (const auto &obj : _v_objects)
+    {
+        glDeleteVertexArrays(1, &obj->vao);
+    }
 }
 
 void AppTest::run(float dt)
@@ -414,26 +425,27 @@ void AppTest::run(float dt)
     glClearBufferfv(GL_COLOR, 0, clear_color);
     glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0f, 0);
 
-    // camera
+    glm::mat4 model(1); // fake.
     
-    glm::mat4 model(1);
-    
+    glEnable(GL_DEPTH_TEST);
+
     glUseProgram(_simple_program.program_id);
 
-    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_model, 1, GL_FALSE, glm::value_ptr(model));
+    // camera
     glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_view, 1, GL_FALSE, glm::value_ptr(_camera.view));
     glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_proj, 1, GL_FALSE, glm::value_ptr(_camera.proj));
 
-    glBindVertexArray(_single_object.vao);
-
-    glEnable(GL_DEPTH_TEST);
-
-    glDrawElements(GL_TRIANGLES, _single_object.nb_elements, GL_UNSIGNED_INT, 0);
-
-    glDisable(GL_DEPTH_TEST);
+    for (const auto &obj : _v_objects)
+    {
+        glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_model, 1, GL_FALSE, glm::value_ptr(model));
+        glBindVertexArray(obj->vao);
+        glDrawElements(GL_TRIANGLES, obj->nb_elements, GL_UNSIGNED_INT, 0);
+    }
 
     glBindVertexArray(0);
     glUseProgram(0);
+
+    glDisable(GL_DEPTH_TEST);
 }
 
 void AppTest::onWindowSize(GLFWwindow * window, int w, int h)

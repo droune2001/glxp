@@ -1,19 +1,13 @@
 #ifndef _APP_TEST_2018_12_03_H_
 #define _APP_TEST_2018_12_03_H_
 
-/* TODO:
-    - ArcBall Camera.
-
-*/
-
-
-
-
-
-
-
 #include "app.h"
 #include "arcball_camera.h"
+#include "tiny_obj_loader.h"
+
+#include <vector>
+#include <map>
+#include <memory>
 
 class AppTest : public App
 {
@@ -30,7 +24,7 @@ public:
     void onMouseMove(GLFWwindow* window, double mouse_x, double mouse_y) override;
     void onMouseScroll(GLFWwindow* window, double xoffset, double yoffset) override;
 
-    struct object
+    struct DrawItem
     {
         unsigned int vao = 0;
 
@@ -38,7 +32,14 @@ public:
         unsigned int vertex_buffer_id = 0;
 
         unsigned int nb_elements = 0;
+
+        unsigned int picking_id = 0xffffffff;
     };
+
+    using DrawItemSharedPtr = std::shared_ptr<DrawItem>;
+    using DrawItemArray = std::vector<DrawItemSharedPtr>;
+    using DrawItemKey = std::string;
+    using DrawItemMap = std::map<DrawItemKey, DrawItemSharedPtr>;
 
 private:
 
@@ -46,6 +47,12 @@ private:
     bool load_gltf(const char *filename);
     bool load_shaders();
     
+    // Adds all the objects in an OBJ into the objects containers.
+    void add_OBJ_to_scene(
+        const tinyobj::attrib_t &obj_attribs,
+        std::vector<tinyobj::shape_t> &obj_shapes,
+        std::vector<tinyobj::material_t> &obj_material,
+        bool normalize_size);
 private:
 
     struct program 
@@ -64,11 +71,15 @@ private:
     };
     
     program _simple_program;
-    object _single_object;
+    
+    DrawItemArray _v_objects;
+    DrawItemMap _m_objects;
+    unsigned int _current_picking_id = 1; // 0 and 0xffffffff are reserved.
 
     double _mouse_x = 0;
     double _mouse_y = 0;
     bool _mouse_pressed = false;
+
     ArcballCamera _camera;
 
     int _window_width = 0;
