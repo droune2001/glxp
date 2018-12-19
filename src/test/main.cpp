@@ -11,6 +11,9 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#define CXXOPTS_NO_RTTI
+#include "cxxopts.hpp"
+
 static
 void error_callback(int error, const char* description)
 {
@@ -152,14 +155,72 @@ void show_fps_window(bool should_refresh_fps, uint64_t fps)
 
 int main(int argc, char **argv)
 {
-    App *app = new AppTest();
+    //
+    // COMMAND LINE
+    //
+    // ex: -vV -w 640 -h 480 -i ../../../data/test/models/sponza.obj
+    //
+    cxxopts::Options options("glx", "nfauvet opengl expriments");
+    options.add_options()
+        ("w,width", "Window width", cxxopts::value<int>()->default_value("1280"))
+        ("h,height", "Window height", cxxopts::value<int>()->default_value("720"))
+        ("i,input", "Input filename", cxxopts::value<std::string>())
+        ("x,exit", "Exit without rendering", cxxopts::value<int>()->default_value("0")->implicit_value("1"))
+        ("v,verbose", "Prints text", cxxopts::value<int>()->default_value("0")->implicit_value("1"))
+        ("V,extra-verbose", "Prints extra text", cxxopts::value<int>()->default_value("0")->implicit_value("1"))
+        ;
+
+    options.parse(argc, argv);
+
+    struct
+    {
+        int width;
+        int height;
+        std::string in_filename;
+        int dontrender;
+        int verbose;
+        int extraverbose;
+    } o;
+
+    // parse
+    o.width = options["w"].as<int>();
+    o.height = options["h"].as<int>();
+    o.in_filename = options["i"].as<std::string>();
+    o.dontrender = options["x"].as<int>();
+    o.verbose = options["v"].as<int>();
+    o.extraverbose = options["extra-verbose"].as<int>();
+
+    if (o.verbose)
+    {
+        std::cout << std::endl;
+        if (o.extraverbose)
+        {
+            std::cout << "~ glxp by nfauvet ~\n\n";
+        }
+
+        std::cout << "Resolution          : " << o.width << "x" << o.height << "\n";
+        std::cout << "Input file          : \"" << o.in_filename << "\"\n";
+        std::cout << "Exit without render : " << o.dontrender << "\n";
+        std::cout << "Verbose             : " << o.verbose << "\n";
+        std::cout << "Extra verbose       : " << o.extraverbose << "\n";
+    }
+
+    //
+    // APP
+    //
+
+    App *app = new AppTest((void*)&o);
+
+    //
+    // GLFW
+    //
 
     if (glfwInit() != GLFW_TRUE)
         return EXIT_FAILURE;
     
     glfwSetErrorCallback(error_callback);
 
-    const char *glsl_version = "#version 460";
+    const char *glsl_version = "#version 460"; // for ImGui
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -169,7 +230,7 @@ int main(int argc, char **argv)
     glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
     glfwWindowHint(GLFW_VISIBLE, GL_TRUE);
     glfwWindowHint(GLFW_DECORATED, GL_TRUE);
-    GLFWwindow *window = glfwCreateWindow(1280, 720, "Test", nullptr, nullptr);
+    GLFWwindow *window = glfwCreateWindow(o.width, o.height, "Test", nullptr, nullptr);
     if (!window)
     {
         glfwTerminate();
@@ -185,14 +246,11 @@ int main(int argc, char **argv)
     glfwSetScrollCallback(window, scroll_callback);
     glfwSetCharCallback(window, char_callback);
 
-    // ImGui
-    //glfwSetMouseButtonCallback(window, ImGui_ImplGlfw_MouseButtonCallback);
-    //glfwSetScrollCallback(window, ImGui_ImplGlfw_ScrollCallback);
-    //glfwSetKeyCallback(window, ImGui_ImplGlfw_KeyCallback);
-    //glfwSetCharCallback(window, ImGui_ImplGlfw_CharCallback);
-
-
     glfwMakeContextCurrent(window);
+
+    //
+    // GLEW
+    //
 
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
@@ -206,7 +264,10 @@ int main(int argc, char **argv)
     
     glfwSwapInterval(1); // ou pas hein!
 
-    // Setup Dear ImGui binding
+    //
+    // IMGUI
+    //
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -218,7 +279,10 @@ int main(int argc, char **argv)
 
     ImGui::StyleColorsDark();
 
+    //
     // INIT GL RESOURCES
+    //
+
     if (!init(window))
     {
         glfwDestroyWindow(window);
@@ -237,6 +301,10 @@ int main(int argc, char **argv)
     bool should_refresh_fps = false;
     uint64_t frame_counter = 0;
     uint64_t fps = 0;
+
+    //
+    // Main Loop
+    //
 
     while (!glfwWindowShouldClose(window))
     {
@@ -275,7 +343,10 @@ int main(int argc, char **argv)
         glfwSwapBuffers(window);
     }
 
+    //
     // Cleanup
+    //
+
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();

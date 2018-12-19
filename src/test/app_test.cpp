@@ -363,6 +363,26 @@ bool AppTest::load_shaders()
     return true;
 }
 
+AppTest::AppTest(void * options)
+{
+    struct options_t
+    {
+        int width;
+        int height;
+        std::string in_filename;
+        int dontrender;
+        int verbose;
+        int extraverbose;
+    };
+    
+    options_t o = *(options_t*)options;
+
+    if (!o.in_filename.empty())
+    {
+        _scene_path = o.in_filename;
+    }
+}
+
 bool AppTest::init(int framebuffer_width, int framebuffer_height)
 {
     _fb_width = framebuffer_width;
@@ -371,9 +391,12 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
     load_shaders();
 
     // OBJ
-    //std::string filename = models_path + "bunny.obj";
-    std::string filename = models_path + "sponza.obj";
-    bool ret = load_obj(filename.c_str());
+    if (_scene_path.empty())
+    {
+        _scene_path = models_path + "bunny.obj";
+        //_scene_path = models_path + "sponza.obj";
+    }
+    bool ret = load_obj(_scene_path.c_str());
 
     //
     // compute the whole scene bbox

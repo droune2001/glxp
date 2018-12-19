@@ -13,6 +13,8 @@ class AppTest : public App
 {
 public:
 
+    AppTest(void *options);
+
     bool init(int framebuffer_width, int framebuffer_height) override;
     void shutdown() override;
     void run(float dt) override;
@@ -72,6 +74,8 @@ private:
         int uni_tex = -1;
     };
     
+    std::string _scene_path;
+
     program _simple_program;
     
     DrawItemArray _v_objects;
