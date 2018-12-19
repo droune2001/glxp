@@ -27,11 +27,13 @@ public:
     struct DrawItem
     {
         unsigned int vao = 0;
-
         unsigned int index_buffer_id = 0;
         unsigned int vertex_buffer_id = 0;
-
         unsigned int nb_elements = 0;
+
+
+        glm::vec3 bbox_min;
+        glm::vec3 bbox_max;
 
         unsigned int picking_id = 0xffffffff;
     };
@@ -81,6 +83,9 @@ private:
     bool _mouse_pressed = false;
 
     ArcballCamera _camera;
+
+    glm::vec3 scene_bbox_min;
+    glm::vec3 scene_bbox_max;
 
     int _window_width = 0;
     int _window_height = 0;

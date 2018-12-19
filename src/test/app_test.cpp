@@ -48,6 +48,9 @@ void AppTest::add_OBJ_to_scene(
         glm::vec3 middle = (bbox_max + bbox_min) / 2.0f;
         float scale_factor = 1.0f / glm::length(bbox_max - middle);
 
+        obj->bbox_min = bbox_min;
+        obj->bbox_max = bbox_max;
+
         struct vertex
         {
             glm::vec4 position; // 3 + ??
@@ -221,7 +224,7 @@ bool AppTest::load_obj(const char *filename)
         printf("# of materials        = %zd\n", obj_material.size());
 
         // create hardware buffers for all objects in the obj, and add it to the scene container
-        add_OBJ_to_scene(obj_attribs, obj_shapes, obj_material, true);
+        add_OBJ_to_scene(obj_attribs, obj_shapes, obj_material, false);
 
         return true;
     }
@@ -365,25 +368,43 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
     _fb_width = framebuffer_width;
     _fb_height = framebuffer_height;
 
-    _camera.viewport = glm::ivec4(0, 0, _fb_width, _fb_height); // full framebuffer viewport
-    _camera.target = glm::vec3(0,0,0);
-    _camera.eye = glm::vec3(0.0f, 0.0f, 3.0f);
-    _camera.near_plane = 1.0f;
-    _camera.far_plane = 100.0f;
-    _camera.fovy_degrees = 45.0f;
-    _camera.update(); // build initial matrices
-    _camera.setup(0.5f); // eye must be set.
-
     load_shaders();
 
     // OBJ
-    std::string filename = models_path + "bunny.obj";
-    //std::string filename = models_path + "sponza.obj";
+    //std::string filename = models_path + "bunny.obj";
+    std::string filename = models_path + "sponza.obj";
     bool ret = load_obj(filename.c_str());
 
+    //
+    // compute the whole scene bbox
+    //
+    scene_bbox_min = glm::vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+    scene_bbox_max = glm::vec3(FLT_MIN, FLT_MIN, FLT_MIN);
+    for (const auto &obj : _v_objects)
+    {
+        scene_bbox_min = glm::min(scene_bbox_min, obj->bbox_min);
+        scene_bbox_max = glm::max(scene_bbox_max, obj->bbox_max);
+    }
+    glm::vec3 scene_middle = (scene_bbox_max + scene_bbox_min) / 2.0f;
+    float scene_radius = glm::length(scene_bbox_max - scene_middle);
+    
     // GLTF
     //std::string filename = "scene.gltf";
     //bool ret = load_gltf(filename.c_str());
+
+    //
+    // Camera
+    //
+    _camera.viewport = glm::ivec4(0, 0, _fb_width, _fb_height); // full framebuffer viewport
+    //_camera.eye = glm::vec3(0.0f, 0.0f, 3.0f);
+    //_camera.eye = glm::vec3(0.0f, 0.0f, 2.0f * scene_radius);
+    _camera.eye = glm::vec3(0.0f, 0.0f, 0.0f);
+    _camera.target = glm::vec3(0, 0, -1);
+    _camera.near_plane = 1.0f;
+    _camera.far_plane = 5.0f * scene_radius;// 100.0f;
+    _camera.fovy_degrees = 45.0f;
+    _camera.update(); // build initial matrices
+    _camera.setup(0.5f); // eye must be set.
 
     return ret;
 }
@@ -435,9 +456,14 @@ void AppTest::run(float dt)
     glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_view, 1, GL_FALSE, glm::value_ptr(_camera.view));
     glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_proj, 1, GL_FALSE, glm::value_ptr(_camera.proj));
 
+    // global scene transform
+    glm::vec3 scene_middle = (scene_bbox_max + scene_bbox_min) / 2.0f;
+    model = glm::translate(model, -scene_middle);
+    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_model, 1, GL_FALSE, glm::value_ptr(model));
+
     for (const auto &obj : _v_objects)
     {
-        glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_model, 1, GL_FALSE, glm::value_ptr(model));
+        //glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_model, 1, GL_FALSE, glm::value_ptr(model));
         glBindVertexArray(obj->vao);
         glDrawElements(GL_TRIANGLES, obj->nb_elements, GL_UNSIGNED_INT, 0);
     }
