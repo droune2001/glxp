@@ -17,6 +17,24 @@ void Camera::translate(const glm::vec3 &t)
     target += t;
 }
 
+void Camera::mouse_move(float mx, float my)
+{
+    
+}
+
+//
+//
+//
+
+void FpsCamera::mouse_move(float mx, float my)
+{
+    glm::mat4 rot(1);
+    glm::rotate(rot, mx / 10.0f, glm::vec3(0, 1, 0));
+    glm::rotate(rot, my / 10.0f, glm::vec3(1, 0, 0));
+
+    dir *= rot;
+}
+
 //
 //
 //
@@ -29,10 +47,6 @@ void ArcballCamera::update()
     //view = view * _quat;
     view = view  * _quat;
 }
-
-//
-//
-//
 
 void ArcballCamera::setup(float radius)
 {
@@ -75,7 +89,7 @@ void ArcballCamera::start(double mx, double my)
     }
 }
 
-void ArcballCamera::move(double mx, double my)
+void ArcballCamera::mouse_move(float mx, float my)
 {
     if (_planar)
     {

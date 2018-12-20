@@ -131,6 +131,7 @@ void AppTest::add_OBJ_to_scene(
 
         // init buffer with initial data (flags == 0 -> STATIC_DRAW, no map permitted.)
         glNamedBufferStorage(obj->vertex_buffer_id, vertex_buffer.size() * sizeof(vertex), vertex_buffer.data(), 0);
+        gpu_memory += vertex_buffer.size() * sizeof(vertex);
 
         // Add a VBO to the VAO.The offset is the global offset of the beginning of the first struct, not individual components.
         glVertexArrayVertexBuffer(obj->vao, MAIN_VBO_BINDING_INDEX, obj->vertex_buffer_id, 0, sizeof(vertex));
@@ -159,6 +160,7 @@ void AppTest::add_OBJ_to_scene(
         glCreateBuffers(1, &obj->index_buffer_id);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, obj->index_buffer_id);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_buffer.size() * sizeof(unsigned int), index_buffer.data(), GL_STATIC_DRAW);
+        gpu_memory += index_buffer.size() * sizeof(unsigned int);
 
         obj->nb_elements = index_buffer.size();
 
@@ -225,6 +227,7 @@ bool AppTest::load_obj(const char *filename)
 
         // create hardware buffers for all objects in the obj, and add it to the scene container
         add_OBJ_to_scene(obj_attribs, obj_shapes, obj_material, false);
+        printf("=> total gpu memory = %zd\n", gpu_memory);
 
         return true;
     }
@@ -419,10 +422,10 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
     // Camera
     //
     _camera.viewport = glm::ivec4(0, 0, _fb_width, _fb_height); // full framebuffer viewport
-    //_camera.eye = glm::vec3(0.0f, 0.0f, 3.0f);
-    //_camera.eye = glm::vec3(0.0f, 0.0f, 2.0f * scene_radius);
-    _camera.eye = glm::vec3(0.0f, 0.0f, 0.0f);
-    _camera.target = glm::vec3(0, 0, -1);
+    _camera.eye = glm::vec3(0.0f, 0.0f, 2.0f * scene_radius);
+    _camera.target = glm::vec3(0, 0, 0);
+    //_camera.eye = glm::vec3(0.0f, 0.0f, 0.0f);
+    //_camera.target = glm::vec3(0, 0, -1);
     _camera.near_plane = 1.0f;
     _camera.far_plane = 5.0f * scene_radius;// 100.0f;
     _camera.fovy_degrees = 45.0f;

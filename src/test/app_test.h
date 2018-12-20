@@ -95,6 +95,9 @@ private:
     int _window_height = 0;
     int _fb_width = 0;
     int _fb_height = 0;
+
+    // memory
+    uint64_t gpu_memory = 0;
 };
 
 #endif // _APP_TEST_2018_12_03_H_

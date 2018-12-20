@@ -6,6 +6,10 @@ using glm::mat4;
 using glm::vec3;
 using glm::ivec4;
 
+//
+//
+//
+
 struct Camera
 {
     ivec4 viewport = ivec4(0, 0, 640, 480);
@@ -20,8 +24,24 @@ struct Camera
     mat4 view;
 
     virtual void translate(const glm::vec3 &);
+    virtual void mouse_move(float dx, float dy);
     virtual void update();
 };
+
+//
+//
+//
+
+struct FpsCamera : Camera
+{
+    vec3 dir = vec3(0,0,-1);
+
+    void mouse_move(float dx, float dy) override;
+};
+
+//
+//
+//
 
 struct ArcballCamera : Camera
 {
@@ -56,7 +76,7 @@ struct ArcballCamera : Camera
     void start(double mx, double my);
 
     // on move the grabbed point of the sphere.
-    void move(double mx, double my);
+    void mouse_move(float mx, float my) override;
 
 
     void update() override;

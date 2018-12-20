@@ -3,7 +3,7 @@
 || COMMON ||
 ------------
 
-- CommandLine facility (for scene file, at least.)
+x CommandLine facility (for scene file, at least.)
 - FPS Camera.
 - Texture load.
 - Procedural stock geometry.
