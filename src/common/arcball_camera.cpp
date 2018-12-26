@@ -13,11 +13,18 @@ void Camera::update()
 
 void Camera::translate(const glm::vec3 &t)
 {
-    eye += t;
-    target += t;
+    // TODO: camera speed
+    float speed = 0.1f;
+    eye += speed * t;
+    target += speed * t;
 }
 
-void Camera::mouse_move(float mx, float my)
+void Camera::mouse_click(int dx, int dy)
+{
+
+}
+
+void Camera::mouse_move(int mx, int my)
 {
     
 }
@@ -26,13 +33,35 @@ void Camera::mouse_move(float mx, float my)
 //
 //
 
-void FpsCamera::mouse_move(float mx, float my)
+void FpsCamera::mouse_click(int mx, int my)
 {
-    glm::mat4 rot(1);
-    glm::rotate(rot, mx / 10.0f, glm::vec3(0, 1, 0));
-    glm::rotate(rot, my / 10.0f, glm::vec3(1, 0, 0));
+    _mx = mx;
+    _my = my;
+}
 
-    dir *= rot;
+void FpsCamera::mouse_move(int mx, int my)
+{
+    int dx = mx - _mx;
+    int dy = my - _my;
+
+    if (dx == 0 || dy == 0)
+        return;
+
+    glm::mat4 rot(1);
+    rot = glm::rotate(rot, dx / 100.0f, glm::vec3(0, 1, 0));
+    rot = glm::rotate(rot, -dy / 100.0f, glm::vec3(1, 0, 0));
+
+    dir = (glm::vec4(dir,1) * rot).xyz;
+
+    _mx = mx;
+    _my = my;
+}
+
+void FpsCamera::update()
+{
+    target = eye + dir;
+
+    Camera::update();
 }
 
 //
@@ -75,7 +104,7 @@ void ArcballCamera::reset()
 
 }
 
-void ArcballCamera::start(double mx, double my)
+void ArcballCamera::mouse_click(int mx, int my)
 {
     // saves a copy of the current rotation for comparison
     _last = _quat;
@@ -89,7 +118,7 @@ void ArcballCamera::start(double mx, double my)
     }
 }
 
-void ArcballCamera::mouse_move(float mx, float my)
+void ArcballCamera::mouse_move(int mx, int my)
 {
     if (_planar)
     {
@@ -154,10 +183,9 @@ vec3 ArcballCamera::edge_coords(vec3 m)
 }
 
 // find the intersection with the sphere
-vec3 ArcballCamera::sphere_coords(double mx, double my)
+vec3 ArcballCamera::sphere_coords(int mx, int my)
 {
-
-    vec3 point = glm::unProject(vec3(mx, my, 0.0), mat4(1.0f), proj, viewport);
+    vec3 point = glm::unProject(vec3(mx, my, 0.0f), mat4(1.0f), proj, viewport);
     vec3 m = point - eye;
 
     // mouse position represents ray: eye + t*m
@@ -174,9 +202,9 @@ vec3 ArcballCamera::sphere_coords(double mx, double my)
 }
 
 // get intersection with plane for "trackball" style rotation
-vec3 ArcballCamera::planar_coords(double mx, double my)
+vec3 ArcballCamera::planar_coords(int mx, int my)
 {
-    vec3 point = glm::unProject(vec3(mx, my, 0.0), mat4(1.0f), proj, viewport);
+    vec3 point = glm::unProject(vec3(mx, my, 0.0f), mat4(1.0f), proj, viewport);
  
     vec3 m = point - eye;
     // intersect the point with the trackball plane

@@ -19,12 +19,15 @@ struct Camera
     float near_plane = 1.0f;
     float far_plane = 5.0f;
     float fovy_degrees = 45.0f;
+    int _mx = 320;
+    int _my = 240;
 
     mat4 proj;
     mat4 view;
 
     virtual void translate(const glm::vec3 &);
-    virtual void mouse_move(float dx, float dy);
+    virtual void mouse_click(int mx, int my);
+    virtual void mouse_move(int mx, int my);
     virtual void update();
 };
 
@@ -36,7 +39,9 @@ struct FpsCamera : Camera
 {
     vec3 dir = vec3(0,0,-1);
 
-    void mouse_move(float dx, float dy) override;
+    void mouse_click(int mx, int my) override;
+    void mouse_move(int mx, int my) override;
+    void update() override;
 };
 
 //
@@ -73,10 +78,10 @@ struct ArcballCamera : Camera
     void reset();
 
     // on click (grab a point on sphere)
-    void start(double mx, double my);
+    void mouse_click(int mx, int my) override;
 
     // on move the grabbed point of the sphere.
-    void mouse_move(float mx, float my) override;
+    void mouse_move(int mx, int my) override;
 
 
     void update() override;
@@ -85,8 +90,8 @@ struct ArcballCamera : Camera
 private:
     
     vec3 edge_coords(vec3 m);
-    vec3 sphere_coords(double mx, double my);
-    vec3 planar_coords(double mx, double my);
+    vec3 sphere_coords(int mx, int my);
+    vec3 planar_coords(int mx, int my);
 };
 
 

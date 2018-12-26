@@ -5,6 +5,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include "glm_usage.h"
+#include "imgui.h"
 #include "tiny_obj_loader.h"
 #include "tiny_gltf.h"
 #include "gl_utils.h"
@@ -421,16 +422,28 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
     //
     // Camera
     //
-    _camera.viewport = glm::ivec4(0, 0, _fb_width, _fb_height); // full framebuffer viewport
-    _camera.eye = glm::vec3(0.0f, 0.0f, 2.0f * scene_radius);
-    _camera.target = glm::vec3(0, 0, 0);
-    //_camera.eye = glm::vec3(0.0f, 0.0f, 0.0f);
-    //_camera.target = glm::vec3(0, 0, -1);
-    _camera.near_plane = 1.0f;
-    _camera.far_plane = 5.0f * scene_radius;// 100.0f;
-    _camera.fovy_degrees = 45.0f;
-    _camera.update(); // build initial matrices
-    _camera.setup(0.5f); // eye must be set.
+    auto ac = std::make_unique<ArcballCamera>();
+    ac->viewport = glm::ivec4(0, 0, _fb_width, _fb_height); // full framebuffer viewport
+    ac->eye = glm::vec3(0.0f, 0.0f, 2.0f * scene_radius);
+    ac->target = glm::vec3(0, 0, 0);
+    //ac->eye = glm::vec3(0.0f, 0.0f, 0.0f);
+    //ac->target = glm::vec3(0, 0, -1);
+    ac->near_plane = 1.0f;
+    ac->far_plane = 5.0f * scene_radius;// 100.0f;
+    ac->fovy_degrees = 45.0f;
+    ac->update(); // build initial matrices
+    ac->setup(0.5f); // eye must be set.
+    _cameras.emplace_back(std::move(ac));
+
+    auto fc = std::make_unique<FpsCamera>();
+    fc->viewport = glm::ivec4(0, 0, _fb_width, _fb_height); // full framebuffer viewport
+    fc->eye = glm::vec3(0.0f, 0.0f, 2.0f * scene_radius);
+    fc->dir = glm::vec3(0, 0, -1);
+    fc->near_plane = 1.0f;
+    fc->far_plane = 5.0f * scene_radius;// 100.0f;
+    fc->fovy_degrees = 45.0f;
+    fc->update(); // build initial matrices
+    _cameras.emplace_back(std::move(fc));
 
     return ret;
 }
@@ -457,13 +470,20 @@ void AppTest::run(float dt)
     //
     // update
     //
-    _camera.update(); // rebuild matrices
+    // TODO: apply move here, with dt.
+    Camera *cm = current_camera();
+    if (!cm)
+    {
+        return;
+    }
+
+    cm->update(); // rebuild matrices
 
     //
     // draw
     //
 
-    glViewport(_camera.viewport[0], _camera.viewport[1], _camera.viewport[2], _camera.viewport[3]);
+    glViewport(cm->viewport[0], cm->viewport[1], cm->viewport[2], cm->viewport[3]);
 
     const GLfloat clear_color[] = { 
         (float)std::sin(accum) * 0.5f + 0.5f,
@@ -479,8 +499,8 @@ void AppTest::run(float dt)
     glUseProgram(_simple_program.program_id);
 
     // camera
-    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_view, 1, GL_FALSE, glm::value_ptr(_camera.view));
-    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_proj, 1, GL_FALSE, glm::value_ptr(_camera.proj));
+    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_view, 1, GL_FALSE, glm::value_ptr(cm->view));
+    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_proj, 1, GL_FALSE, glm::value_ptr(cm->proj));
 
     // global scene transform
     glm::vec3 scene_middle = (scene_bbox_max + scene_bbox_min) / 2.0f;
@@ -498,6 +518,8 @@ void AppTest::run(float dt)
     glUseProgram(0);
 
     glDisable(GL_DEPTH_TEST);
+
+    do_gui();
 }
 
 void AppTest::onWindowSize(GLFWwindow * window, int w, int h)
@@ -521,23 +543,27 @@ void AppTest::onKeyboard(GLFWwindow * window, int key, int scancode, int action,
     {
         // Move camera
         float mv_x = 0, mv_y = 0, mv_z = 0;
-        if (key == GLFW_KEY_K)
+        if (key == GLFW_KEY_D)
             mv_x += 1;
-        else if (key == GLFW_KEY_J)
+        else if (key == GLFW_KEY_A)
             mv_x += -1;
-        else if (key == GLFW_KEY_L)
+        else if (key == GLFW_KEY_PAGE_UP)
             mv_y += 1;
-        else if (key == GLFW_KEY_H)
+        else if (key == GLFW_KEY_PAGE_DOWN)
             mv_y += -1;
-        else if (key == GLFW_KEY_P)
+        else if (key == GLFW_KEY_S)
             mv_z += 1;
-        else if (key == GLFW_KEY_N)
+        else if (key == GLFW_KEY_W)
             mv_z += -1;
 
         // pourrave, juste pour test.
         // TODO: record un vecteur unitaire d'impulse, et appliquer ca avec la speed
         // de la camera au moment du update.
-        _camera.translate(glm::vec3(mv_x * 0.05f, mv_y * 0.05f, mv_z * 0.05f));
+        auto *cm = current_camera();
+        if (cm)
+        {
+            cm->translate(glm::vec3(mv_x, mv_y, mv_z));
+        }
         
         // Close window
         if (key == GLFW_KEY_Q || key == GLFW_KEY_ESCAPE)
@@ -556,9 +582,12 @@ void AppTest::onMouseClick(GLFWwindow* window, int button, int action, int mods)
         if (action == GLFW_PRESS) 
         {
             _mouse_pressed = true;
-            // TODO: why doubles??? convert all to int.
-            double invert_y = ((double)_fb_height - _mouse_y) - 1.0;
-            _camera.start(_mouse_x, invert_y);
+            auto *cm = current_camera();
+            if (cm)
+            {
+                int invert_y = (_fb_height - _mouse_y) - 1;
+                cm->mouse_click(_mouse_x, invert_y);
+            }
         }
         else if (action == GLFW_RELEASE) 
         {
@@ -576,8 +605,12 @@ void AppTest::onMouseMove(GLFWwindow* window, double mouse_x, double mouse_y)
 
     if (_mouse_pressed) 
     {
-        double invert_y = ((double)_fb_height - _mouse_y) - 1.0;
-        _camera.move(mouse_x, invert_y);
+        auto *cm = current_camera();
+        if (cm)
+        {
+            int invert_y = (_fb_height - _mouse_y) - 1;
+            cm->mouse_move(mouse_x, invert_y);
+        }
     }
 
     // Update mouse point
@@ -592,4 +625,31 @@ void AppTest::onMouseScroll(GLFWwindow* window, double xoffset, double yoffset)
     //dist -= (float)yoffset * 0.3f;
     //dist -= (float)xoffset * 0.3f;
     //dist = glm::clamp(dist, 0.5f, 10.f);
+}
+
+void AppTest::do_gui()
+{
+    static bool show_dialog = true;
+    static bool reset_cam = false;
+
+    if (!ImGui::Begin("Options", &show_dialog, ImGuiWindowFlags_None))
+    {
+        // Early out if the window is collapsed, as an optimization.
+        ImGui::End();
+        return;
+    }
+
+    if (ImGui::CollapsingHeader("Section 1"))
+    {
+        if (ImGui::Checkbox("Reset camera", &reset_cam))
+        {
+            // ...
+        }
+
+        ImGui::InputInt("Current Camera", &_current_camera_idx);
+        Camera *cm = current_camera();
+        ImGui::Text("eye: %.2f %.2f %.2f", cm->eye.x, cm->eye.y, cm->eye.z);
+    }
+
+    ImGui::End();
 }

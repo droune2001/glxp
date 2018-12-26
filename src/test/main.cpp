@@ -335,10 +335,9 @@ int main(int argc, char **argv)
         //    ImGui::ShowDemoWindow(&show_demo_window);
         //}
 
-        ImGui::Render();
-
         run(window, dt);
 
+        ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
     }
