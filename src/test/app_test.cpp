@@ -10,11 +10,13 @@
 #include "tiny_gltf.h"
 #include "gl_utils.h"
 #include "utils.h"
+#include "texture.h"
 
 #include <vector>
 #include <fstream>
 
 static std::string models_path = "../../../data/test/models/";
+static std::string texture_path = "../../../data/test/models/";
 static std::string shaders_path = "../../../data/test/shaders/";
 
 void AppTest::add_OBJ_to_scene(
@@ -331,6 +333,14 @@ bool AppTest::load_gltf(const char *filename)
     }
 }
 
+bool AppTest::load_textures()
+{
+    std::string img_path = models_path + "fish_hoek_beach_2k.hdr";
+    load_image_hdr(&_tex, img_path.c_str());
+
+    return true;
+}
+
 bool AppTest::load_shaders()
 {
     auto vs = utils::read_file_content(shaders_path + "simple.vert");
@@ -393,6 +403,7 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
     _fb_height = framebuffer_height;
 
     load_shaders();
+    load_textures();
 
     // OBJ
     if (_scene_path.empty())
@@ -426,8 +437,6 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
     ac->viewport = glm::ivec4(0, 0, _fb_width, _fb_height); // full framebuffer viewport
     ac->eye = glm::vec3(0.0f, 0.0f, 2.0f * scene_radius);
     ac->target = glm::vec3(0, 0, 0);
-    //ac->eye = glm::vec3(0.0f, 0.0f, 0.0f);
-    //ac->target = glm::vec3(0, 0, -1);
     ac->near_plane = 1.0f;
     ac->far_plane = 5.0f * scene_radius;// 100.0f;
     ac->fovy_degrees = 45.0f;
@@ -565,29 +574,8 @@ void AppTest::onKeyboard(GLFWwindow * window, int key, int scancode, int action,
     (void)mods;
     if (action == GLFW_PRESS || action == GLFW_REPEAT)
     {
-        //// Move camera
-        //float mv_x = 0, mv_y = 0, mv_z = 0;
-        //if (key == GLFW_KEY_D)
-        //    mv_x += 1;
-        //else if (key == GLFW_KEY_A)
-        //    mv_x += -1;
-        //else if (key == GLFW_KEY_PAGE_UP)
-        //    mv_y += 1;
-        //else if (key == GLFW_KEY_PAGE_DOWN)
-        //    mv_y += -1;
-        //else if (key == GLFW_KEY_S)
-        //    mv_z += 1;
-        //else if (key == GLFW_KEY_W)
-        //    mv_z += -1;
-
-        //// pourrave, juste pour test.
-        //// TODO: record un vecteur unitaire d'impulse, et appliquer ca avec la speed
-        //// de la camera au moment du update.
-        //auto *cm = current_camera();
-        //if (cm)
-        //{
-        //    cm->translate(glm::vec3(mv_x, mv_y, mv_z));
-        //}
+        //if (key == GLFW_KEY_E)
+        //    toto = !toto;
         
         // Close window
         if (key == GLFW_KEY_Q || key == GLFW_KEY_ESCAPE)

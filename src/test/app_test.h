@@ -4,6 +4,7 @@
 #include "app.h"
 #include "arcball_camera.h"
 #include "tiny_obj_loader.h"
+#include "texture.h"
 
 #include <vector>
 #include <map>
@@ -50,7 +51,8 @@ private:
     bool load_obj(const char *filename);
     bool load_gltf(const char *filename);
     bool load_shaders();
-    
+    bool load_textures();
+
     // Adds all the objects in an OBJ into the objects containers.
     void add_OBJ_to_scene(
         const tinyobj::attrib_t &obj_attribs,
@@ -77,7 +79,9 @@ private:
         int uni_proj = -1;
         int uni_tex = -1;
     };
-    
+
+    texture _tex;
+
     std::string _scene_path;
 
     program _simple_program;
