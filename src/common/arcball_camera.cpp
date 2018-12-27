@@ -13,8 +13,10 @@ void Camera::update()
 
 void Camera::translate(const glm::vec3 &t)
 {
+    // t: unit vector of current direction, multiplied by dt.
+
     // TODO: camera speed
-    float speed = 0.1f;
+    float speed = 1.0f; // per second
     eye += speed * t;
     target += speed * t;
 }

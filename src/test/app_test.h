@@ -59,6 +59,7 @@ private:
         bool normalize_size);
 
     void do_gui();
+    void update_camera(float dt);
 
 private:
 
@@ -88,7 +89,7 @@ private:
     double _mouse_x = 0;
     double _mouse_y = 0;
     bool _mouse_pressed = false;
-
+    
     Camera *current_camera() { return (_current_camera_idx != -1) ? _cameras[_current_camera_idx].get() : nullptr; };
     int _current_camera_idx = 1;
     std::vector<std::unique_ptr<Camera>> _cameras;

@@ -462,27 +462,51 @@ void AppTest::shutdown()
     }
 }
 
-void AppTest::run(float dt)
+void AppTest::update_camera(float dt)
 {
-    static float accum = 0.0f;
-    accum += dt;
-
-    //
-    // update
-    //
-    // TODO: apply move here, with dt.
     Camera *cm = current_camera();
     if (!cm)
     {
         return;
     }
 
+    ImGuiIO& io = ImGui::GetIO();
+    bool left = io.KeysDown[GLFW_KEY_A];
+    bool right = io.KeysDown[GLFW_KEY_D];
+    bool forward = io.KeysDown[GLFW_KEY_W];
+    bool backward = io.KeysDown[GLFW_KEY_S];
+    bool up = io.KeysDown[GLFW_KEY_PAGE_UP];
+    bool down = io.KeysDown[GLFW_KEY_PAGE_DOWN];
+
+    glm::vec3 direction(0.0f);
+    auto test = left ^ right;
+    direction.x = !(left ^ right) ? 0.0f : ( left ? -1.0f : 1.0f);
+    direction.y = !(down ^ up) ? 0.0f : (down ? -1.0f : 1.0f);
+    direction.z = !(forward ^ backward) ? 0.0f : (forward ? -1.0f : 1.0f);
+
+    direction *= dt;
+    cm->translate(direction);
+
     cm->update(); // rebuild matrices
+}
+
+void AppTest::run(float dt)
+{
+    static float accum = 0.0f;
+    accum += dt;
+
+    Camera *cm = current_camera();
+    if (!cm)
+        return;
+    
+    //
+    // update
+    //
+    update_camera(dt); // reads key states and translates/updates camera.
 
     //
     // draw
     //
-
     glViewport(cm->viewport[0], cm->viewport[1], cm->viewport[2], cm->viewport[3]);
 
     const GLfloat clear_color[] = { 
@@ -541,29 +565,29 @@ void AppTest::onKeyboard(GLFWwindow * window, int key, int scancode, int action,
     (void)mods;
     if (action == GLFW_PRESS || action == GLFW_REPEAT)
     {
-        // Move camera
-        float mv_x = 0, mv_y = 0, mv_z = 0;
-        if (key == GLFW_KEY_D)
-            mv_x += 1;
-        else if (key == GLFW_KEY_A)
-            mv_x += -1;
-        else if (key == GLFW_KEY_PAGE_UP)
-            mv_y += 1;
-        else if (key == GLFW_KEY_PAGE_DOWN)
-            mv_y += -1;
-        else if (key == GLFW_KEY_S)
-            mv_z += 1;
-        else if (key == GLFW_KEY_W)
-            mv_z += -1;
+        //// Move camera
+        //float mv_x = 0, mv_y = 0, mv_z = 0;
+        //if (key == GLFW_KEY_D)
+        //    mv_x += 1;
+        //else if (key == GLFW_KEY_A)
+        //    mv_x += -1;
+        //else if (key == GLFW_KEY_PAGE_UP)
+        //    mv_y += 1;
+        //else if (key == GLFW_KEY_PAGE_DOWN)
+        //    mv_y += -1;
+        //else if (key == GLFW_KEY_S)
+        //    mv_z += 1;
+        //else if (key == GLFW_KEY_W)
+        //    mv_z += -1;
 
-        // pourrave, juste pour test.
-        // TODO: record un vecteur unitaire d'impulse, et appliquer ca avec la speed
-        // de la camera au moment du update.
-        auto *cm = current_camera();
-        if (cm)
-        {
-            cm->translate(glm::vec3(mv_x, mv_y, mv_z));
-        }
+        //// pourrave, juste pour test.
+        //// TODO: record un vecteur unitaire d'impulse, et appliquer ca avec la speed
+        //// de la camera au moment du update.
+        //auto *cm = current_camera();
+        //if (cm)
+        //{
+        //    cm->translate(glm::vec3(mv_x, mv_y, mv_z));
+        //}
         
         // Close window
         if (key == GLFW_KEY_Q || key == GLFW_KEY_ESCAPE)
@@ -648,7 +672,11 @@ void AppTest::do_gui()
 
         ImGui::InputInt("Current Camera", &_current_camera_idx);
         Camera *cm = current_camera();
-        ImGui::Text("eye: %.2f %.2f %.2f", cm->eye.x, cm->eye.y, cm->eye.z);
+        if (cm)
+        {
+            ImGui::Text("eye: %.2f %.2f %.2f", cm->eye.x, cm->eye.y, cm->eye.z);
+            ImGui::SliderAngle("FoV", &cm->fovy_degrees, 1.0f, 179.0f);
+        }
     }
 
     ImGui::End();
