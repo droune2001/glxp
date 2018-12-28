@@ -360,37 +360,63 @@ bool AppTest::load_textures()
 
 bool AppTest::load_shaders()
 {
-    auto vs = utils::read_file_content(shaders_path + "simple.vert");
-    auto fs = utils::read_file_content(shaders_path + "simple.frag");
+    // simple
+    {
+        auto vs = utils::read_file_content(shaders_path + "simple.vert");
+        auto fs = utils::read_file_content(shaders_path + "simple.frag");
 
-    GLuint vs_id = glCreateShader(GL_VERTEX_SHADER);
-    GLuint fs_id = glCreateShader(GL_FRAGMENT_SHADER);
+        GLuint vs_id = glCreateShader(GL_VERTEX_SHADER);
+        GLuint fs_id = glCreateShader(GL_FRAGMENT_SHADER);
 
-    if (!glutils::compile_shader(vs_id, vs.data(), vs.size()))
-        return false;
-    if (!glutils::compile_shader(fs_id, fs.data(), fs.size()))
-        return false;
+        if (!glutils::compile_shader(vs_id, vs.data(), vs.size()))
+            return false;
+        if (!glutils::compile_shader(fs_id, fs.data(), fs.size()))
+            return false;
 
-    GLuint prog_id = glCreateProgram();
+        GLuint prog_id = glCreateProgram();
 
-    if (!glutils::link_program(prog_id, vs_id, fs_id))
-        return false;
+        if (!glutils::link_program(prog_id, vs_id, fs_id))
+            return false;
 
-    glDeleteShader(vs_id);
-    glDeleteShader(fs_id);
-    
-    _simple_program.program_id = prog_id;
+        glDeleteShader(vs_id);
+        glDeleteShader(fs_id);
 
-    _simple_program.attrib_in_position = glGetAttribLocation(prog_id, "inPosition");
-    _simple_program.attrib_in_normal = glGetAttribLocation(prog_id, "inNormal"); 
-    _simple_program.attrib_in_color = glGetAttribLocation(prog_id, "inColor");
-    _simple_program.attrib_in_texcoord = glGetAttribLocation(prog_id, "inTexCoord");
+        _simple_program.program_id = prog_id;
 
-    _simple_program.uni_model = glGetUniformLocation(prog_id, "model");
-    _simple_program.uni_view = glGetUniformLocation(prog_id, "view");
-    _simple_program.uni_proj = glGetUniformLocation(prog_id, "proj");
-    _simple_program.uni_tex = glGetUniformLocation(prog_id, "tex");
+        _simple_program.attrib_in_position = glGetAttribLocation(prog_id, "inPosition");
+        _simple_program.attrib_in_normal = glGetAttribLocation(prog_id, "inNormal");
+        _simple_program.attrib_in_color = glGetAttribLocation(prog_id, "inColor");
+        _simple_program.attrib_in_texcoord = glGetAttribLocation(prog_id, "inTexCoord");
 
+        _simple_program.uni_model = glGetUniformLocation(prog_id, "model");
+        _simple_program.uni_view = glGetUniformLocation(prog_id, "view");
+        _simple_program.uni_proj = glGetUniformLocation(prog_id, "proj");
+        _simple_program.uni_tex = glGetUniformLocation(prog_id, "tex");
+    }
+
+    // fullscreen
+    {
+        auto vs = utils::read_file_content(shaders_path + "fullscreen.vert");
+        auto fs = utils::read_file_content(shaders_path + "fullscreen.frag");
+
+        GLuint vs_id = glCreateShader(GL_VERTEX_SHADER);
+        GLuint fs_id = glCreateShader(GL_FRAGMENT_SHADER);
+
+        if (!glutils::compile_shader(vs_id, vs.data(), vs.size()))
+            return false;
+        if (!glutils::compile_shader(fs_id, fs.data(), fs.size()))
+            return false;
+
+        GLuint prog_id = glCreateProgram();
+
+        if (!glutils::link_program(prog_id, vs_id, fs_id))
+            return false;
+
+        glDeleteShader(vs_id);
+        glDeleteShader(fs_id);
+
+        _fullscreen_program = prog_id;
+    }
     return true;
 }
 
@@ -471,6 +497,9 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
     fc->update(); // build initial matrices
     _cameras.emplace_back(std::move(fc));
 
+    // VAO for fullscreen pass
+    glCreateVertexArrays(1, &_dummy_vao);
+
     return ret;
 }
 
@@ -514,6 +543,8 @@ void AppTest::update_camera(float dt)
     cm->translate(direction);
 
     cm->update(); // rebuild matrices
+
+    cm->viewport = glm::ivec4(0, 0, _fb_width, _fb_height);
 }
 
 void AppTest::run(float dt)
@@ -533,7 +564,7 @@ void AppTest::run(float dt)
     //
     // draw
     //
-    glViewport(cm->viewport[0], cm->viewport[1], cm->viewport[2], cm->viewport[3]);
+    glViewport(0, 0, _fb_width, _fb_height);
 
     const GLfloat clear_color[] = { 
         (float)std::sin(accum) * 0.5f + 0.5f,
@@ -541,6 +572,23 @@ void AppTest::run(float dt)
         0.0f, 1.0f };
     glClearBufferfv(GL_COLOR, 0, clear_color);
     glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0f, 0);
+
+
+    //
+    // fullscreen pass
+    //
+    // texture
+    glBindSampler(0, _sampler); // bind the sampler to the texture unit 0
+    glBindTextureUnit(0, _tex); // bind the texture object to the texture unit 0
+    glUseProgram(_fullscreen_program);
+    glBindVertexArray(_dummy_vao);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindVertexArray(0);
+    glUseProgram(0);
+
+
+
+
 
     glm::mat4 model(1); // fake.
     

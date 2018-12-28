@@ -85,7 +85,9 @@ private:
     std::string _scene_path;
 
     program _simple_program;
-    
+    unsigned int _fullscreen_program;
+    unsigned int _dummy_vao;
+
     DrawItemArray _v_objects;
     DrawItemMap _m_objects;
     unsigned int _current_picking_id = 1; // 0 and 0xffffffff are reserved.
