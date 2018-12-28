@@ -337,7 +337,8 @@ bool AppTest::load_textures()
     //
     // TEXTURES
     //
-    glutils::load_image_hdr(&_tex, models_path + "fish_hoek_beach_2k.hdr");
+    //glutils::load_image_hdr(&_tex, models_path + "fish_hoek_beach_2k.hdr");
+    glutils::load_image_hdr(&_tex, models_path + "venice_sunset_2k.hdr");
 
     //
     // SAMPLERS
@@ -656,78 +657,88 @@ void AppTest::run(float dt)
     update_camera(dt); // reads key states and translates/updates camera.
 
     //
-    // draw
+    // DRAW scene in HDR framebuffer.
     //
     glBindFramebuffer(GL_FRAMEBUFFER, _fb_hdr);
-
-    glViewport(0, 0, _fb_width, _fb_height);
-
-    const GLfloat clear_color[] = { 
-        (float)std::sin(accum) * 0.5f + 0.5f,
-        (float)std::cos(accum) * 0.5f + 0.5f,
-        0.0f, 1.0f };
-    glClearBufferfv(GL_COLOR, 0, clear_color);
-    glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0f, 0);
-
-
-    glm::mat4 model(1); // fake.
-    
-    glEnable(GL_DEPTH_TEST);
-
-    glUseProgram(_simple_program.program_id);
-
-    // camera
-    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_view, 1, GL_FALSE, glm::value_ptr(cm->view));
-    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_proj, 1, GL_FALSE, glm::value_ptr(cm->proj));
-
-    // global scene transform
-    glm::vec3 scene_middle = (scene_bbox_max + scene_bbox_min) / 2.0f;
-    model = glm::translate(model, -scene_middle);
-    glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_model, 1, GL_FALSE, glm::value_ptr(model));
-
-    // texture
-    glBindSampler(0, _sampler); // bind the sampler to the texture unit 0
-    glBindTextureUnit(0, _tex); // bind the texture object to the texture unit 0
-
-    for (const auto &obj : _v_objects)
     {
-        //glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_model, 1, GL_FALSE, glm::value_ptr(model));
-        glBindVertexArray(obj->vao);
-        glDrawElements(GL_TRIANGLES, obj->nb_elements, GL_UNSIGNED_INT, 0);
+        glViewport(0, 0, _fb_width, _fb_height);
+
+        // Clear
+        const GLfloat clear_color[] = {
+            (float)std::sin(accum) * 0.5f + 0.5f,
+            (float)std::cos(accum) * 0.5f + 0.5f,
+            0.0f, 1.0f };
+        glClearBufferfv(GL_COLOR, 0, clear_color);
+        glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0f, 0);
+
+        // Background texture.
+        glDisable(GL_DEPTH_TEST);
+        glBindSampler(0, _sampler); // bind the sampler to the texture unit 0
+        glBindTextureUnit(0, _tex); // bind the texture object to the texture unit 0
+        glUseProgram(_fullscreen_program);
+        glBindVertexArray(_dummy_vao);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindVertexArray(0);
+        glUseProgram(0);
+
+        // Scene content
+        glEnable(GL_DEPTH_TEST);
+        glUseProgram(_simple_program.program_id);
+
+        // camera
+        glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_view, 1, GL_FALSE, glm::value_ptr(cm->view));
+        glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_proj, 1, GL_FALSE, glm::value_ptr(cm->proj));
+
+        // global scene transform
+        glm::vec3 scene_middle = (scene_bbox_max + scene_bbox_min) / 2.0f;
+        glm::mat4 model(1);
+        model = glm::translate(model, -scene_middle);
+        glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_model, 1, GL_FALSE, glm::value_ptr(model));
+
+        // texture
+        glBindSampler(0, _sampler); // bind the sampler to the texture unit 0
+        glBindTextureUnit(0, _tex); // bind the texture object to the texture unit 0
+
+        for (const auto &obj : _v_objects)
+        {
+            //glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_model, 1, GL_FALSE, glm::value_ptr(model));
+            glBindVertexArray(obj->vao);
+            glDrawElements(GL_TRIANGLES, obj->nb_elements, GL_UNSIGNED_INT, 0);
+        }
+
+        glBindVertexArray(0);
+        glUseProgram(0);
+        glDisable(GL_DEPTH_TEST);
     }
-
-    glBindVertexArray(0);
-    glUseProgram(0);
-
-    glDisable(GL_DEPTH_TEST);
-
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     //
     // Tone-Mapping - READS hdr - WRITES ldr
     //
     glBindFramebuffer(GL_FRAMEBUFFER, _fb_ldr);
+    {
+        glBindSampler(0, _linear_sampler); // bind the sampler to the texture unit 0
+        glBindTextureUnit(0, _fbtex_hdr_color); // bind the texture object to the texture unit 0
 
-    glBindSampler(0, _linear_sampler); // bind the sampler to the texture unit 0
-    glBindTextureUnit(0, _fbtex_hdr_color); // bind the texture object to the texture unit 0
-
-    glUseProgram(_tonemap_program);
-    glBindVertexArray(_dummy_vao);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    glBindVertexArray(0);
-
+        glUseProgram(_tonemap_program);
+        glBindVertexArray(_dummy_vao);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindVertexArray(0);
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     //
     // fullscreen pass - copy the LDR framebuffer to the screen (could use a blit)
     //
-    glBindSampler(0, _nearest_sampler); // bind the sampler to the texture unit 0
-    glBindTextureUnit(0, _fbtex_ldr_color); // bind the texture object to the texture unit 0
-    glUseProgram(_fullscreen_program);
-    glBindVertexArray(_dummy_vao);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    glBindVertexArray(0);
-    glUseProgram(0);
+    {
+        glBindSampler(0, _nearest_sampler); // bind the sampler to the texture unit 0
+        glBindTextureUnit(0, _fbtex_ldr_color); // bind the texture object to the texture unit 0
+        glUseProgram(_fullscreen_program);
+        glBindVertexArray(_dummy_vao);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindVertexArray(0);
+        glUseProgram(0);
+    }
 
     //
     // GUI - over the default framebuffer

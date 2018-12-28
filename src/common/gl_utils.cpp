@@ -92,6 +92,8 @@ bool link_program(GLuint program, GLuint vertexShader, GLuint fragmentShader)
 
 void load_image_hdr(GLuint *tex_id, const std::string &filename)
 {
+    stbi_set_flip_vertically_on_load(1);
+
     int image_width, image_height, image_components;
     float *image_data = stbi_loadf(filename.c_str(), &image_width, &image_height, &image_components, 0);
 
