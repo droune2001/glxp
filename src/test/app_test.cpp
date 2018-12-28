@@ -10,7 +10,6 @@
 #include "tiny_gltf.h"
 #include "gl_utils.h"
 #include "utils.h"
-#include "texture.h"
 
 #include <vector>
 #include <fstream>
@@ -335,8 +334,26 @@ bool AppTest::load_gltf(const char *filename)
 
 bool AppTest::load_textures()
 {
-    std::string img_path = models_path + "fish_hoek_beach_2k.hdr";
-    load_image_hdr(&_tex, img_path.c_str());
+    //
+    // TEXTURES
+    //
+    glutils::load_image_hdr(&_tex, models_path + "fish_hoek_beach_2k.hdr");
+
+    //
+    // SAMPLERS
+    //
+    glCreateSamplers(1, &_sampler);
+    
+    //glSamplerParameteri(_sampler, GL_TEXTURE_BASE_LEVEL, 0);
+    //glSamplerParameteri(_sampler, GL_TEXTURE_MAX_LEVEL, 4);
+    
+    glSamplerParameteri(_sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glSamplerParameteri(_sampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glSamplerParameteri(_sampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glSamplerParameteri(_sampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    //glTextureParameteri(_tex, xxx, iii); // to parameter the sampler object embedded in the texture object.
 
     return true;
 }
@@ -539,6 +556,10 @@ void AppTest::run(float dt)
     glm::vec3 scene_middle = (scene_bbox_max + scene_bbox_min) / 2.0f;
     model = glm::translate(model, -scene_middle);
     glProgramUniformMatrix4fv(_simple_program.program_id, _simple_program.uni_model, 1, GL_FALSE, glm::value_ptr(model));
+
+    // texture
+    glBindSampler(0, _sampler); // bind the sampler to the texture unit 0
+    glBindTextureUnit(0, _tex); // bind the texture object to the texture unit 0
 
     for (const auto &obj : _v_objects)
     {

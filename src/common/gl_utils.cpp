@@ -1,6 +1,7 @@
 #include "gl_utils.h"
 
-#include <GL/glew.h>
+#include "stb_image.h"
+
 #include <string>
 #include <vector>
 #include <iostream>
@@ -83,6 +84,31 @@ bool link_program(GLuint program, GLuint vertexShader, GLuint fragmentShader)
     int status;
     glGetProgramiv(program, GL_LINK_STATUS, &status);
     return (status != GL_FALSE);
+}
+
+//
+// TEXTURE
+//
+
+void load_image_hdr(GLuint *tex_id, const std::string &filename)
+{
+    int image_width, image_height, image_components;
+    float *image_data = stbi_loadf(filename.c_str(), &image_width, &image_height, &image_components, 0);
+
+    GLenum internalFormat = GL_RGB32F;
+    GLenum format = GL_RGB;
+    GLenum type = GL_FLOAT;
+
+    glCreateTextures(GL_TEXTURE_2D, 1, tex_id);
+    glTextureStorage2D(*tex_id, 5, internalFormat, image_width, image_height); // 5 mip levels
+    glTextureSubImage2D(*tex_id, 0, 0, 0, image_width, image_height, format, type, image_data); // upload first mip level
+    glGenerateTextureMipmap(*tex_id);
+
+    // constrain sampler (or texture sampler?)
+    glTextureParameteri(*tex_id, GL_TEXTURE_BASE_LEVEL, 0);
+    glTextureParameteri(*tex_id, GL_TEXTURE_MAX_LEVEL, 4);
+
+    stbi_image_free(image_data);
 }
 
 } // namespace glutils

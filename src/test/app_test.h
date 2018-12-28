@@ -4,7 +4,6 @@
 #include "app.h"
 #include "arcball_camera.h"
 #include "tiny_obj_loader.h"
-#include "texture.h"
 
 #include <vector>
 #include <map>
@@ -80,7 +79,8 @@ private:
         int uni_tex = -1;
     };
 
-    texture _tex;
+    unsigned int _tex;
+    unsigned int _sampler;
 
     std::string _scene_path;
 
