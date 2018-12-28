@@ -344,9 +344,6 @@ bool AppTest::load_textures()
     //
     glCreateSamplers(1, &_sampler);
     
-    //glSamplerParameteri(_sampler, GL_TEXTURE_BASE_LEVEL, 0);
-    //glSamplerParameteri(_sampler, GL_TEXTURE_MAX_LEVEL, 4);
-    
     glSamplerParameteri(_sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glSamplerParameteri(_sampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -354,6 +351,24 @@ bool AppTest::load_textures()
     glSamplerParameteri(_sampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     //glTextureParameteri(_tex, xxx, iii); // to parameter the sampler object embedded in the texture object.
+
+    // NEAREST
+    glCreateSamplers(1, &_nearest_sampler);
+
+    glSamplerParameteri(_nearest_sampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glSamplerParameteri(_nearest_sampler, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glSamplerParameteri(_nearest_sampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glSamplerParameteri(_nearest_sampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // LINEAR
+    glCreateSamplers(1, &_linear_sampler);
+
+    glSamplerParameteri(_linear_sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glSamplerParameteri(_linear_sampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glSamplerParameteri(_linear_sampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glSamplerParameteri(_linear_sampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     return true;
 }
@@ -417,6 +432,84 @@ bool AppTest::load_shaders()
 
         _fullscreen_program = prog_id;
     }
+
+    // tonemap
+    {
+        auto vs = utils::read_file_content(shaders_path + "tonemap.vert");
+        auto fs = utils::read_file_content(shaders_path + "tonemap.frag");
+
+        GLuint vs_id = glCreateShader(GL_VERTEX_SHADER);
+        GLuint fs_id = glCreateShader(GL_FRAGMENT_SHADER);
+
+        if (!glutils::compile_shader(vs_id, vs.data(), vs.size()))
+            return false;
+        if (!glutils::compile_shader(fs_id, fs.data(), fs.size()))
+            return false;
+
+        GLuint prog_id = glCreateProgram();
+
+        if (!glutils::link_program(prog_id, vs_id, fs_id))
+            return false;
+
+        glDeleteShader(vs_id);
+        glDeleteShader(fs_id);
+
+        _tonemap_program = prog_id;
+    }
+
+    return true;
+}
+
+bool AppTest::recreate_framebuffers()
+{
+    // release framebuffer resources.
+    // ...
+
+    return create_framebuffers();
+}
+
+bool AppTest::create_framebuffers()
+{
+    //
+    // HDR Framebuffer
+    //
+    glCreateFramebuffers(1, &_fb_hdr);
+
+    // COLOR - use a texture (to be able to use it later for reading, has mips)
+    glCreateTextures(GL_TEXTURE_2D, 1, &_fbtex_hdr_color);
+    glTextureStorage2D(_fbtex_hdr_color, 1, GL_RGBA32F, _fb_width, _fb_height);
+    glNamedFramebufferTexture(_fb_hdr, GL_COLOR_ATTACHMENT0, _fbtex_hdr_color, 0);
+
+    // DEPTH - use renderbuffer = 2D,no-mips,no-read (we could use a texture, though)
+    glCreateRenderbuffers(1, &_fbtex_hdr_depth);
+    glNamedRenderbufferStorage(_fbtex_hdr_depth, GL_DEPTH_COMPONENT32F, _fb_width, _fb_height);
+    glNamedFramebufferRenderbuffer(_fb_hdr, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _fbtex_hdr_depth);
+
+    // draw into attachment 0
+    glNamedFramebufferDrawBuffer(_fb_hdr, GL_COLOR_ATTACHMENT0);
+
+    glutils::check_error();
+
+    //
+    // LDR Framebuffer
+    //
+    glCreateFramebuffers(1, &_fb_ldr);
+
+    // COLOR - use a texture (to be able to use it later for reading, has mips)
+    glCreateTextures(GL_TEXTURE_2D, 1, &_fbtex_ldr_color);
+    glTextureStorage2D(_fbtex_ldr_color, 1, GL_RGBA8, _fb_width, _fb_height);
+    glNamedFramebufferTexture(_fb_ldr, GL_COLOR_ATTACHMENT0, _fbtex_ldr_color, 0);
+
+    // DEPTH - use renderbuffer = 2D,no-mips,no-read (we could use a texture, though)
+    glCreateRenderbuffers(1, &_fbtex_ldr_depth);
+    glNamedRenderbufferStorage(_fbtex_ldr_depth, GL_DEPTH_COMPONENT32F, _fb_width, _fb_height);
+    glNamedFramebufferRenderbuffer(_fb_ldr, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _fbtex_ldr_depth);
+
+    // draw into attachment 0
+    glNamedFramebufferDrawBuffer(_fb_ldr, GL_COLOR_ATTACHMENT0);
+
+    glutils::check_error();
+
     return true;
 }
 
@@ -447,6 +540,7 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
 
     load_shaders();
     load_textures();
+    create_framebuffers();
 
     // OBJ
     if (_scene_path.empty())
@@ -564,6 +658,8 @@ void AppTest::run(float dt)
     //
     // draw
     //
+    glBindFramebuffer(GL_FRAMEBUFFER, _fb_hdr);
+
     glViewport(0, 0, _fb_width, _fb_height);
 
     const GLfloat clear_color[] = { 
@@ -572,22 +668,6 @@ void AppTest::run(float dt)
         0.0f, 1.0f };
     glClearBufferfv(GL_COLOR, 0, clear_color);
     glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0f, 0);
-
-
-    //
-    // fullscreen pass
-    //
-    // texture
-    glBindSampler(0, _sampler); // bind the sampler to the texture unit 0
-    glBindTextureUnit(0, _tex); // bind the texture object to the texture unit 0
-    glUseProgram(_fullscreen_program);
-    glBindVertexArray(_dummy_vao);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    glBindVertexArray(0);
-    glUseProgram(0);
-
-
-
 
 
     glm::mat4 model(1); // fake.
@@ -621,6 +701,37 @@ void AppTest::run(float dt)
 
     glDisable(GL_DEPTH_TEST);
 
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    //
+    // Tone-Mapping - READS hdr - WRITES ldr
+    //
+    glBindFramebuffer(GL_FRAMEBUFFER, _fb_ldr);
+
+    glBindSampler(0, _linear_sampler); // bind the sampler to the texture unit 0
+    glBindTextureUnit(0, _fbtex_hdr_color); // bind the texture object to the texture unit 0
+
+    glUseProgram(_tonemap_program);
+    glBindVertexArray(_dummy_vao);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindVertexArray(0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    //
+    // fullscreen pass - copy the LDR framebuffer to the screen (could use a blit)
+    //
+    glBindSampler(0, _nearest_sampler); // bind the sampler to the texture unit 0
+    glBindTextureUnit(0, _fbtex_ldr_color); // bind the texture object to the texture unit 0
+    glUseProgram(_fullscreen_program);
+    glBindVertexArray(_dummy_vao);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindVertexArray(0);
+    glUseProgram(0);
+
+    //
+    // GUI - over the default framebuffer
+    //
     do_gui();
 }
 
@@ -634,6 +745,8 @@ void AppTest::onFramebufferSize(GLFWwindow* window, int w, int h)
 {
     _fb_width = w;
     _fb_height = h;
+
+    recreate_framebuffers();
 }
 
 void AppTest::onKeyboard(GLFWwindow * window, int key, int scancode, int action, int mods)

@@ -51,6 +51,8 @@ private:
     bool load_gltf(const char *filename);
     bool load_shaders();
     bool load_textures();
+    bool create_framebuffers();
+    bool recreate_framebuffers();
 
     // Adds all the objects in an OBJ into the objects containers.
     void add_OBJ_to_scene(
@@ -81,12 +83,25 @@ private:
 
     unsigned int _tex;
     unsigned int _sampler;
+    unsigned int _nearest_sampler;
+    unsigned int _linear_sampler;
 
     std::string _scene_path;
 
     program _simple_program;
     unsigned int _fullscreen_program;
+    unsigned int _tonemap_program;
     unsigned int _dummy_vao;
+
+    // framebuffers
+    unsigned int _fb_hdr; // main rendering here
+    unsigned int _fbtex_hdr_color;
+    unsigned int _fbtex_hdr_depth;
+
+    unsigned int _fb_ldr; // tone mapping here
+    unsigned int _fbtex_ldr_color;
+    unsigned int _fbtex_ldr_depth;
+
 
     DrawItemArray _v_objects;
     DrawItemMap _m_objects;
