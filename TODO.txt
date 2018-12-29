@@ -7,7 +7,7 @@ x CommandLine facility (for scene file, at least.)
 x FPS Camera.
 x Texture load.
 x Fullscreen quad.
-- Procedural stock geometry.
+x Procedural stock geometry.
 x FBO facility + render to FBO and blit final quad.
 - Picking (= global map of objects)
 
@@ -30,27 +30,6 @@ HDR Tonemapping:
 - ACES, Filmic, Reinhardt
   - https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
   - https://www.slideshare.net/ozlael/hable-john-uncharted2-hdr-lighting/53
-    gamma = (x*(6.2*x+0.5))/(x*(6.2*x+1.7)+0.06);
-    A = shoulder strength
-    B = linear strength
-    C = Linear Angle
-    D = Toe Strength
-    E = Toe Numerator
-    F = Toe Denominator
-    => E/F = Toe Angle
-
-    F(x) = ((x*(A*x+C*B)+D*E)/(x*(A*x+B)+D*F)) - E/F;
-    FinalColor = F(LinearColor)/F(LinearWhite)
-
-    // without pow(1/2.2)
-    A = 0.22
-    B = 0.30
-    C = 0.10
-    D = 0.20
-    E = 0.01
-    F = 0.30
-    Linear White Point Value = 11.2
-
 
 Cascaded ShadowMaps:
 -------------------
@@ -60,6 +39,9 @@ Screen Space Reflexions:
 
 Depth of Field:
 --------------
+- https://twvideo01.ubm-us.net/o1/vault/gdc2018/presentations/Garcia_Kleber_CircularDepthOf.pdf
+  - source: http://yehar.com/blog/?p=1495
+
 
 SSAO:
 ----

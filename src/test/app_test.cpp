@@ -10,6 +10,7 @@
 #include "tiny_gltf.h"
 #include "gl_utils.h"
 #include "utils.h"
+#include "procgen.h"
 
 #include <vector>
 #include <fstream>
@@ -18,8 +19,125 @@ static std::string models_path = "../../../data/test/models/";
 static std::string texture_path = "../../../data/test/models/";
 static std::string shaders_path = "../../../data/test/shaders/";
 
+void AppTest::add_to_scene(const std::string &name, const IndexedMesh &mesh)
+{
+    unsigned int suffix = 0;
+    std::string object_name = name;
+    while (_m_objects.find(name) != _m_objects.end())
+    {
+        object_name = name + std::to_string(suffix++);
+    }
+
+    auto new_object = std::make_shared<DrawItem>();
+    _v_objects.push_back(new_object);
+    _m_objects[object_name] = new_object;
+
+    auto obj = _m_objects[object_name];
+
+    //
+    // compute bbox
+    //
+    glm::vec3 bbox_min(FLT_MAX, FLT_MAX, FLT_MAX);
+    glm::vec3 bbox_max(FLT_MIN, FLT_MIN, FLT_MIN);
+    for (const auto &v : mesh.vertices)
+    {
+        bbox_min = glm::min(bbox_min, v.p);
+        bbox_max = glm::max(bbox_max, v.p);
+    }
+    glm::vec3 middle = (bbox_max + bbox_min) / 2.0f;
+    float scale_factor = 1.0f / glm::length(bbox_max - middle);
+
+    obj->bbox_min = bbox_min;
+    obj->bbox_max = bbox_max;
+
+    struct vertex
+    {
+        glm::vec3 position;
+        glm::vec3 normal;
+        glm::vec3 diffuse_color;
+        glm::vec2 texcoords;
+    };
+
+    std::vector<vertex> vertex_buffer;
+    vertex_buffer.resize(mesh.vertices.size()); // model triangulated by tinyobj
+    for (size_t i = 0; i < mesh.vertices.size(); ++i)
+    {
+        const auto &v_src = mesh.vertices[i];
+        auto &v_dst = vertex_buffer[i];
+        v_dst.position = v_src.p;
+        v_dst.normal = v_src.n;
+        v_dst.diffuse_color = glm::vec3(1, 1, 1);
+        v_dst.texcoords = v_src.uv;
+    }
+
+    const std::vector<unsigned int> &index_buffer = mesh.indices;
+
+
+    //
+    // separate this code?
+    // function that takes vertices, indices, and obj&, and builds opengl buffers.
+    //
+
+
+    glCreateVertexArrays(1, &obj->vao);
+    glBindVertexArray(obj->vao);
+
+    //
+    // vertex buffer
+    //
+#define MAIN_VBO_BINDING_INDEX 0
+
+#define POSITION_SHADER_ATTRIB_INDEX 0 // THIS one is the binding location in the shader.
+#define NORMAL_SHADER_ATTRIB_INDEX 1
+#define COLOR_SHADER_ATTRIB_INDEX 2
+#define TEXCOORD_SHADER_ATTRIB_INDEX 3
+
+    glCreateBuffers(1, &obj->vertex_buffer_id);
+
+    // init buffer with initial data (flags == 0 -> STATIC_DRAW, no map permitted.)
+    glNamedBufferStorage(obj->vertex_buffer_id, vertex_buffer.size() * sizeof(vertex), vertex_buffer.data(), 0);
+    gpu_memory += vertex_buffer.size() * sizeof(vertex);
+
+    // Add a VBO to the VAO.The offset is the global offset of the beginning of the first struct, not individual components.
+    glVertexArrayVertexBuffer(obj->vao, MAIN_VBO_BINDING_INDEX, obj->vertex_buffer_id, 0, sizeof(vertex));
+
+    // Specify format. The offsets are for individual components, relative to the beginning of the struct.
+    glVertexArrayAttribFormat(obj->vao, POSITION_SHADER_ATTRIB_INDEX, 3, GL_FLOAT, GL_FALSE, 0);
+    glVertexArrayAttribFormat(obj->vao, NORMAL_SHADER_ATTRIB_INDEX, 3, GL_FLOAT, GL_FALSE, offsetof(vertex, normal));
+    glVertexArrayAttribFormat(obj->vao, COLOR_SHADER_ATTRIB_INDEX, 3, GL_FLOAT, GL_FALSE, offsetof(vertex, diffuse_color));
+    glVertexArrayAttribFormat(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX, 2, GL_FLOAT, GL_FALSE, offsetof(vertex, texcoords));
+
+    // map a vao attrib index to a shader attrib binding locations.
+    glVertexArrayAttribBinding(obj->vao, POSITION_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
+    glVertexArrayAttribBinding(obj->vao, NORMAL_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
+    glVertexArrayAttribBinding(obj->vao, COLOR_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
+    glVertexArrayAttribBinding(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
+
+    // enable the attribute
+    glEnableVertexArrayAttrib(obj->vao, POSITION_SHADER_ATTRIB_INDEX);
+    glEnableVertexArrayAttrib(obj->vao, NORMAL_SHADER_ATTRIB_INDEX);
+    glEnableVertexArrayAttrib(obj->vao, COLOR_SHADER_ATTRIB_INDEX);
+    glEnableVertexArrayAttrib(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX);
+
+    //
+    // index buffer
+    //
+    glCreateBuffers(1, &obj->index_buffer_id);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, obj->index_buffer_id);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_buffer.size() * sizeof(unsigned int), index_buffer.data(), GL_STATIC_DRAW);
+    gpu_memory += index_buffer.size() * sizeof(unsigned int);
+
+    obj->nb_elements = index_buffer.size();
+
+    glBindVertexArray(0); // unbind current VAO
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    glutils::check_error();
+}
+
 void AppTest::add_OBJ_to_scene(
-    const tinyobj::attrib_t &obj_attribs, 
+    const tinyobj::attrib_t &obj_attribs,
     std::vector<tinyobj::shape_t> &obj_shapes,
     std::vector<tinyobj::material_t> &obj_material,
     bool normalize_size)
@@ -55,10 +173,10 @@ void AppTest::add_OBJ_to_scene(
 
         struct vertex
         {
-            glm::vec4 position; // 3 + ??
-            glm::vec4 normal;  // 3 + ??
-            glm::vec4 diffuse_color;
-            glm::vec4 texcoords; // 2 + ??
+            glm::vec3 position;
+            glm::vec3 normal;
+            glm::vec3 diffuse_color;
+            glm::vec2 texcoords;
         };
 
         // convert tinyobj_loader multi-index format to my own interleaved linear format
@@ -67,8 +185,8 @@ void AppTest::add_OBJ_to_scene(
         for (size_t i = 0; i < obj_attribs.vertices.size() / 3; ++i)
         {
             vertex &v = vertex_buffer[i];
-            v.position = glm::vec4(obj_attribs.vertices[3 * i + 0], obj_attribs.vertices[3 * i + 1], obj_attribs.vertices[3 * i + 2], 1.0f);
-            v.diffuse_color = glm::vec4(obj_attribs.colors[3 * i + 0], obj_attribs.colors[3 * i + 1], obj_attribs.colors[3 * i + 2], 1.0f);
+            v.position = glm::vec3(obj_attribs.vertices[3 * i + 0], obj_attribs.vertices[3 * i + 1], obj_attribs.vertices[3 * i + 2]);
+            v.diffuse_color = glm::vec3(obj_attribs.colors[3 * i + 0], obj_attribs.colors[3 * i + 1], obj_attribs.colors[3 * i + 2]);
             if (normalize_size)
             {
                 v.position.xyz = scale_factor * (v.position.xyz - middle);
@@ -92,20 +210,20 @@ void AppTest::add_OBJ_to_scene(
                 vertex &v = vertex_buffer[vi];
                 if (index.normal_index != -1)
                 {
-                    v.normal = glm::vec4(obj_attribs.normals[3 * ni + 0], obj_attribs.normals[3 * ni + 1], obj_attribs.normals[3 * ni + 2], 1.0f);
+                    v.normal = glm::vec3(obj_attribs.normals[3 * ni + 0], obj_attribs.normals[3 * ni + 1], obj_attribs.normals[3 * ni + 2]);
                 }
                 else
                 {
-                    v.normal = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f); // default normal = UP
+                    v.normal = glm::vec3(0.0f, 1.0f, 0.0f); // default normal = UP
                 }
 
                 if (index.texcoord_index != -1)
                 {
-                    v.texcoords = glm::vec4(obj_attribs.texcoords[2 * ti + 0], obj_attribs.texcoords[2 * ti + 1], 1.0f, 1.0f);
+                    v.texcoords = glm::vec2(obj_attribs.texcoords[2 * ti + 0], obj_attribs.texcoords[2 * ti + 1]);
                 }
                 else
                 {
-                    v.texcoords = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); // default TC = 0,0
+                    v.texcoords = glm::vec2(0.0f, 0.0f); // default TC = 0,0
                 }
             }
         }
@@ -119,9 +237,6 @@ void AppTest::add_OBJ_to_scene(
         //
         // vertex buffer
         //
-#define USE_DSA
-#ifdef USE_DSA
-
 #define MAIN_VBO_BINDING_INDEX 0
 
 #define POSITION_SHADER_ATTRIB_INDEX 0 // THIS one is the binding location in the shader.
@@ -139,10 +254,10 @@ void AppTest::add_OBJ_to_scene(
         glVertexArrayVertexBuffer(obj->vao, MAIN_VBO_BINDING_INDEX, obj->vertex_buffer_id, 0, sizeof(vertex));
 
         // Specify format. The offsets are for individual components, relative to the beginning of the struct.
-        glVertexArrayAttribFormat(obj->vao, POSITION_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, 0);
-        glVertexArrayAttribFormat(obj->vao, NORMAL_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, normal));
-        glVertexArrayAttribFormat(obj->vao, COLOR_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, diffuse_color));
-        glVertexArrayAttribFormat(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, texcoords));
+        glVertexArrayAttribFormat(obj->vao, POSITION_SHADER_ATTRIB_INDEX, 3, GL_FLOAT, GL_FALSE, 0);
+        glVertexArrayAttribFormat(obj->vao, NORMAL_SHADER_ATTRIB_INDEX, 3, GL_FLOAT, GL_FALSE, offsetof(vertex, normal));
+        glVertexArrayAttribFormat(obj->vao, COLOR_SHADER_ATTRIB_INDEX, 3, GL_FLOAT, GL_FALSE, offsetof(vertex, diffuse_color));
+        glVertexArrayAttribFormat(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX, 2, GL_FLOAT, GL_FALSE, offsetof(vertex, texcoords));
 
         // map a vao attrib index to a shader attrib binding locations.
         glVertexArrayAttribBinding(obj->vao, POSITION_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
@@ -165,13 +280,6 @@ void AppTest::add_OBJ_to_scene(
         gpu_memory += index_buffer.size() * sizeof(unsigned int);
 
         obj->nb_elements = index_buffer.size();
-
-#else
-        glBindBuffer(GL_ARRAY_BUFFER, obj->position_buffer_id);
-        glBufferData(GL_ARRAY_BUFFER, position_buffer.size() * sizeof(float), position_buffer.data(), GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-        glEnableVertexAttribArray(0);
-#endif
 
         glBindVertexArray(0); // unbind current VAO
         glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -536,6 +644,8 @@ AppTest::AppTest(void * options)
 
 bool AppTest::init(int framebuffer_width, int framebuffer_height)
 {
+    bool ret = true;
+
     _fb_width = framebuffer_width;
     _fb_height = framebuffer_height;
 
@@ -549,7 +659,10 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
         _scene_path = models_path + "bunny.obj";
         //_scene_path = models_path + "sponza.obj";
     }
-    bool ret = load_obj(_scene_path.c_str());
+    ret = load_obj(_scene_path.c_str());
+
+    //add_to_scene("cube", make_flat_cube(1.0f, 1.0f, 1.0f));
+    //add_to_scene("sphere", make_icosphere(5, 1.0f));
 
     //
     // compute the whole scene bbox

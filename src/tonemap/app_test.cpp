@@ -254,10 +254,10 @@ void AppTest::add_OBJ_to_scene(
         glVertexArrayVertexBuffer(obj->vao, MAIN_VBO_BINDING_INDEX, obj->vertex_buffer_id, 0, sizeof(vertex));
 
         // Specify format. The offsets are for individual components, relative to the beginning of the struct.
-        glVertexArrayAttribFormat(obj->vao, POSITION_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, 0);
-        glVertexArrayAttribFormat(obj->vao, NORMAL_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, normal));
-        glVertexArrayAttribFormat(obj->vao, COLOR_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, diffuse_color));
-        glVertexArrayAttribFormat(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX, 4, GL_FLOAT, GL_FALSE, offsetof(vertex, texcoords));
+        glVertexArrayAttribFormat(obj->vao, POSITION_SHADER_ATTRIB_INDEX, 3, GL_FLOAT, GL_FALSE, 0);
+        glVertexArrayAttribFormat(obj->vao, NORMAL_SHADER_ATTRIB_INDEX, 3, GL_FLOAT, GL_FALSE, offsetof(vertex, normal));
+        glVertexArrayAttribFormat(obj->vao, COLOR_SHADER_ATTRIB_INDEX, 3, GL_FLOAT, GL_FALSE, offsetof(vertex, diffuse_color));
+        glVertexArrayAttribFormat(obj->vao, TEXCOORD_SHADER_ATTRIB_INDEX, 2, GL_FLOAT, GL_FALSE, offsetof(vertex, texcoords));
 
         // map a vao attrib index to a shader attrib binding locations.
         glVertexArrayAttribBinding(obj->vao, POSITION_SHADER_ATTRIB_INDEX, MAIN_VBO_BINDING_INDEX);
@@ -654,15 +654,16 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
     create_framebuffers();
 
     // OBJ
-    if (_scene_path.empty())
-    {
-        _scene_path = models_path + "bunny.obj";
-        //_scene_path = models_path + "sponza.obj";
-    }
-    ret = load_obj(_scene_path.c_str());
+    //if (_scene_path.empty())
+    //{
+    //    _scene_path = models_path + "bunny.obj";
+    //    //_scene_path = models_path + "sponza.obj";
+    //}
+    //ret = load_obj(_scene_path.c_str());
 
     //add_to_scene("cube", make_flat_cube(1.0f, 1.0f, 1.0f));
-
+    add_to_scene("sphere", make_icosphere(5, 1.0f));
+    
     //
     // compute the whole scene bbox
     //

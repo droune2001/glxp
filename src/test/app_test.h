@@ -4,6 +4,7 @@
 #include "app.h"
 #include "arcball_camera.h"
 #include "tiny_obj_loader.h"
+#include "procgen.h"
 
 #include <vector>
 #include <map>
@@ -53,6 +54,8 @@ private:
     bool load_textures();
     bool create_framebuffers();
     bool recreate_framebuffers();
+
+    void add_to_scene(const std::string &name, const IndexedMesh &mesh);
 
     // Adds all the objects in an OBJ into the objects containers.
     void add_OBJ_to_scene(
@@ -112,7 +115,7 @@ private:
     bool _mouse_pressed = false;
     
     Camera *current_camera() { return (_current_camera_idx != -1) ? _cameras[_current_camera_idx].get() : nullptr; };
-    int _current_camera_idx = 1;
+    int _current_camera_idx = 0;
     std::vector<std::unique_ptr<Camera>> _cameras;
 
     glm::vec3 scene_bbox_min;

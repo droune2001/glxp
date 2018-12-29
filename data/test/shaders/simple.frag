@@ -20,6 +20,6 @@ void main()
 
     //outColor = mix(normal_color, texcoords_color, 0.5);
     //outColor = mix(normal_color, tex_color, 0.5);
-    //outColor = vec4(tex_color.rgb, 1.0);
-    outColor = normal_color;
+    outColor = vec4(tex_color.rgb, 1.0);
+    //outColor = normal_color;
 }
