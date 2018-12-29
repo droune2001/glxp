@@ -36,7 +36,10 @@ include_directories(${GLEW_INCLUDE_DIRS})
 
 # PROJECTS
 add_subdirectory(test)
+add_subdirectory(tonemap)
+
 set_property(TARGET test PROPERTY FOLDER "app")
+set_property(TARGET tonemap PROPERTY FOLDER "app")
 
 # startup project for the whole solution, if it has never been opened (wont work if refreshing)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT test)
