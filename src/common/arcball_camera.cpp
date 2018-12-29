@@ -11,14 +11,19 @@ void Camera::update()
     view = glm::lookAt(eye, target, glm::vec3(0, 1, 0));
 }
 
-void Camera::translate(const glm::vec3 &t)
+void Camera::translate(const glm::vec3 &dt_camera_space)
 {
-    // t: unit vector of current direction, multiplied by dt.
+    // dt_camera_space: unit vector of current direction in camera space, multiplied by dt.
 
-    // TODO: camera speed
+    glm::vec3 cam_z = -glm::normalize(target-eye);
+    glm::vec3 cam_x = glm::normalize(glm::cross(glm::vec3(0, 1, 0), cam_z));
+    glm::vec3 cam_y = glm::normalize(glm::cross(cam_z, cam_x));
+    glm::mat3 cam_to_world = glm::mat3(cam_x, cam_y, cam_z);
+    glm::vec3 dt_world_space = cam_to_world * dt_camera_space;
+
     float speed = 1.0f; // per second
-    eye += speed * t;
-    target += speed * t;
+    eye += speed * dt_world_space;
+    target += speed * dt_world_space;
 }
 
 void Camera::mouse_click(int dx, int dy)
@@ -49,11 +54,16 @@ void FpsCamera::mouse_move(int mx, int my)
     if (dx == 0 || dy == 0)
         return;
 
+    glm::vec3 cam_z = -glm::normalize(target - eye);
+    glm::vec3 cam_x = glm::normalize(glm::cross(glm::vec3(0, 1, 0), cam_z));
+    glm::vec3 cam_y = glm::normalize(glm::cross(cam_z, cam_x));
+    
     glm::mat4 rot(1);
-    rot = glm::rotate(rot, dx / 100.0f, glm::vec3(0, 1, 0));
-    rot = glm::rotate(rot, -dy / 100.0f, glm::vec3(1, 0, 0));
+    rot = glm::rotate(rot, dx / 100.0f, cam_y);
+    rot = glm::rotate(rot, -dy / 100.0f, cam_x);
 
     dir = (glm::vec4(dir,1) * rot).xyz;
+    target = eye + dir;
 
     _mx = mx;
     _my = my;
@@ -75,7 +85,6 @@ void ArcballCamera::update()
     Camera::update();
 
     // Apply the arcball rotation on top of the normal camera view matrix.
-    //view = view * _quat;
     view = view  * _quat;
 }
 
