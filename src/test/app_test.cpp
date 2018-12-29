@@ -101,7 +101,7 @@ void AppTest::add_OBJ_to_scene(
 
                 if (index.texcoord_index != -1)
                 {
-                    v.texcoords = glm::vec4(obj_attribs.texcoords[2 * ti + 0], obj_attribs.texcoords[2 * ni + 1], 1.0f, 1.0f);
+                    v.texcoords = glm::vec4(obj_attribs.texcoords[2 * ti + 0], obj_attribs.texcoords[2 * ti + 1], 1.0f, 1.0f);
                 }
                 else
                 {
