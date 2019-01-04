@@ -230,7 +230,7 @@ int main(int argc, char **argv)
     glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
     glfwWindowHint(GLFW_VISIBLE, GL_TRUE);
     glfwWindowHint(GLFW_DECORATED, GL_TRUE);
-    GLFWwindow *window = glfwCreateWindow(o.width, o.height, "Test", nullptr, nullptr);
+    GLFWwindow *window = glfwCreateWindow(o.width, o.height, "Tonemap", nullptr, nullptr);
     if (!window)
     {
         glfwTerminate();

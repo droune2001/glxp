@@ -12,8 +12,12 @@
 #include "utils.h"
 #include "procgen.h"
 
+#include "FilmicCurve/FilmicToneCurve.h"
+#include "FilmicCurve/FilmicColorGrading.h"
+
 #include <vector>
 #include <fstream>
+#include <functional>
 
 static std::string models_path = "../../../data/tonemap/models/";
 static std::string texture_path = "../../../data/tonemap/models/";
@@ -945,6 +949,62 @@ void AppTest::onMouseScroll(GLFWwindow* window, double xoffset, double yoffset)
     //dist = glm::clamp(dist, 0.5f, 10.f);
 }
 
+static FilmicColorGrading::UserParams userParams; // User params are the input
+
+void AppTest::update_tonemap_curves()
+{
+    int nb_steps = 256;
+    float min_x = 0.0f;
+    float max_x = 5.0f;
+
+    auto build_curve = [nb_steps, min_x, max_x](std::vector<float> &data, std::function<float(float)> f)
+    {
+        data.resize(nb_steps); // fill with 0
+        
+        float delta = (max_x - min_x) / (nb_steps - 1);
+        for (int i = 0; i < nb_steps; ++i)
+        {
+            float x = min_x + i * delta;
+            data[i] = f(x);
+        }
+    };
+
+    auto linear_curve = [nb_steps, min_x, max_x](float srcValue) 
+    { 
+        float range = max_x - min_x;
+        return (srcValue-min_x)/range;
+    };
+
+    auto filmic_curve = [nb_steps, min_x, max_x](float srcValue)
+    {
+        float x = std::max(0.0f, srcValue - 0.004f);
+        return (x*(6.2f*x + 0.5f)) / (x*(6.2f*x + 1.7f) + 0.06f);
+    };
+
+    build_curve(_curve0, linear_curve);
+    build_curve(_curve1, filmic_curve);
+    
+    
+    //FilmicColorGrading::UserParams userParams; // User params are the input
+    FilmicColorGrading::RawParams rawParams;
+    FilmicColorGrading::EvalParams evalParams;
+    FilmicColorGrading::BakedParams bakeParams;
+
+    FilmicColorGrading::RawFromUserParams(rawParams, userParams);
+    FilmicColorGrading::EvalFromRawParams(evalParams,rawParams);
+    FilmicColorGrading::BakeFromEvalParams(bakeParams,evalParams,nb_steps,FilmicColorGrading::kTableSpacing_Quadratic);
+
+    _curve2.resize(nb_steps); // fill with 0
+    float delta = (max_x - min_x) / (nb_steps - 1);
+    for (int i = 0; i < nb_steps; ++i)
+    {
+        float x = min_x + i * delta;
+        Vec3 srcColor = Vec3(x, x, x);
+        Vec3 dstColor = bakeParams.EvalColor(srcColor);
+        _curve2[i] = dstColor.x;
+    }
+}
+
 void AppTest::do_gui()
 {
     static bool show_dialog = true;
@@ -956,7 +1016,17 @@ void AppTest::do_gui()
         ImGui::End();
         return;
     }
-
+    // if ...
+    update_tonemap_curves();
+    ImGui::PlotLines("L", _curve0.data(), _curve0.size(), 0, "Linear", 0.0f, 1.2f, ImVec2(0, 128)); 
+    ImGui::PlotLines("F1", _curve1.data(), _curve1.size(), 0, "Filmic", 0.0f, 1.2f, ImVec2(0, 128));
+    ImGui::SliderFloat("Toe Strength", &userParams.m_filmicToeStrength, 0.0f, 1.0f, "%.2f");
+    ImGui::SliderFloat("Toe Length", &userParams.m_filmicToeLength, 0.0f, 1.0f, "%.2f");
+    ImGui::SliderFloat("Shoulder Strength", &userParams.m_filmicShoulderStrength, 0.0f, 1.0f, "%.2f");
+    ImGui::SliderFloat("Shoulder Length", &userParams.m_filmicShoulderLength, 0.0f, 1.0f, "%.2f");
+    ImGui::SliderFloat("Shoulder Angle", &userParams.m_filmicShoulderAngle, 0.0f, 1.0f, "%.2f");
+    ImGui::SliderFloat("Gamma", &userParams.m_filmicGamma, 1.0f, 2.2f, "%.2f");
+    ImGui::PlotLines("F2", _curve2.data(), _curve2.size(), 0, "Filmic New", 0.0f, 1.2f, ImVec2(0, 128));
     if (ImGui::CollapsingHeader("Section 1"))
     {
         if (ImGui::Checkbox("Reset camera", &reset_cam))

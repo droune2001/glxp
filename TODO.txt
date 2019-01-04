@@ -30,6 +30,8 @@ HDR Tonemapping:
 - ACES, Filmic, Reinhardt
   - https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
   - https://www.slideshare.net/ozlael/hable-john-uncharted2-hdr-lighting/53
+  - http://filmicworlds.com/blog/filmic-tonemapping-with-piecewise-power-curves/ (after uncharted 2, better)
+  - http://advances.realtimerendering.com/other/2016/naughty_dog/NaughtyDog_TechArt_Final.pdf
 
 Cascaded ShadowMaps:
 -------------------

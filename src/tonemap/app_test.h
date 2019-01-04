@@ -67,6 +67,8 @@ private:
     void do_gui();
     void update_camera(float dt);
 
+    void update_tonemap_curves();
+
 private:
 
     struct program 
@@ -128,6 +130,11 @@ private:
 
     // memory
     uint64_t gpu_memory = 0;
+
+    // tonemap curves
+    std::vector<float> _curve0;
+    std::vector<float> _curve1;
+    std::vector<float> _curve2;
 };
 
 #endif // _APP_TEST_2018_12_03_H_
