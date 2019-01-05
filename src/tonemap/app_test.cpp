@@ -450,7 +450,33 @@ bool AppTest::load_textures()
     // TEXTURES
     //
     //glutils::load_image_hdr(&_tex, models_path + "fish_hoek_beach_2k.hdr");
-    glutils::load_image_hdr(&_tex, models_path + "venice_sunset_2k.hdr");
+    glutils::load_image_hdr(&_tex, models_path + "venice_sunset_2k.hdr"); // HDR Max = 8384.
+
+    //
+    // 3D LUT
+    //
+    GLenum internalFormat = GL_RGB32F;
+    GLenum format = GL_RGB;
+    GLenum type = GL_FLOAT;
+
+    glCreateTextures(GL_TEXTURE_3D, 1, &_3dlut_tex);
+    glTextureStorage3D(_3dlut_tex, 1, internalFormat, 32, 32, 32);
+    _3dlut.resize(32 * 32 * 32);
+    for(int b=0; b<32; ++b)
+    {
+        for (int g = 0; g<32; ++g)
+        {
+            for (int r = 0; r<32; ++r)
+            {
+                int idx = b * 32 * 32 + g * 32 + r;
+                _3dlut[idx] = glm::vec3(r/31.0f, g/31.0f, b/31.0f);
+            }
+        }
+    }
+    glTextureSubImage3D(_3dlut_tex, 0, 0, 0, 0, 32, 32, 32, format, type, _3dlut.data());
+
+    // do it once
+    update_tonemap_curves();
 
     //
     // SAMPLERS
@@ -482,6 +508,7 @@ bool AppTest::load_textures()
 
     glSamplerParameteri(_linear_sampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glSamplerParameteri(_linear_sampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glSamplerParameteri(_linear_sampler, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
     return true;
 }
@@ -837,6 +864,9 @@ void AppTest::run(float dt)
         glBindSampler(0, _linear_sampler); // bind the sampler to the texture unit 0
         glBindTextureUnit(0, _fbtex_hdr_color); // bind the texture object to the texture unit 0
 
+        glBindSampler(1, _linear_sampler);
+        glBindTextureUnit(1, _3dlut_tex);
+
         glUseProgram(_tonemap_program);
         glBindVertexArray(_dummy_vao);
         glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -950,12 +980,13 @@ void AppTest::onMouseScroll(GLFWwindow* window, double xoffset, double yoffset)
 }
 
 static FilmicColorGrading::UserParams userParams; // User params are the input
+static float g_ACESGamma = 1.0f;
 
 void AppTest::update_tonemap_curves()
 {
     int nb_steps = 256;
     float min_x = 0.0f;
-    float max_x = 5.0f;
+    float max_x = 4.0f;
 
     auto build_curve = [nb_steps, min_x, max_x](std::vector<float> &data, std::function<float(float)> f)
     {
@@ -984,25 +1015,130 @@ void AppTest::update_tonemap_curves()
     build_curve(_curve0, linear_curve);
     build_curve(_curve1, filmic_curve);
     
-    
-    //FilmicColorGrading::UserParams userParams; // User params are the input
-    FilmicColorGrading::RawParams rawParams;
-    FilmicColorGrading::EvalParams evalParams;
-    FilmicColorGrading::BakedParams bakeParams;
-
-    FilmicColorGrading::RawFromUserParams(rawParams, userParams);
-    FilmicColorGrading::EvalFromRawParams(evalParams,rawParams);
-    FilmicColorGrading::BakeFromEvalParams(bakeParams,evalParams,nb_steps,FilmicColorGrading::kTableSpacing_Quadratic);
-
-    _curve2.resize(nb_steps); // fill with 0
-    float delta = (max_x - min_x) / (nb_steps - 1);
-    for (int i = 0; i < nb_steps; ++i)
     {
-        float x = min_x + i * delta;
-        Vec3 srcColor = Vec3(x, x, x);
-        Vec3 dstColor = bakeParams.EvalColor(srcColor);
-        _curve2[i] = dstColor.x;
+        //FilmicColorGrading::UserParams userParams; // User params are the input
+        FilmicColorGrading::RawParams rawParams;
+        FilmicColorGrading::EvalParams evalParams;
+        FilmicColorGrading::BakedParams bakeParams;
+        FilmicColorGrading::BakedParams bakeParamsForLut;
+
+        FilmicColorGrading::RawFromUserParams(rawParams, userParams);
+        FilmicColorGrading::EvalFromRawParams(evalParams, rawParams);
+        FilmicColorGrading::BakeFromEvalParams(bakeParams, evalParams, 1024, FilmicColorGrading::kTableSpacing_Quadratic);
+
+        _curve2.resize(nb_steps); // fill with 0
+        float delta = (max_x - min_x) / (nb_steps - 1);
+        for (int i = 0; i < nb_steps; ++i)
+        {
+            float x = min_x + i * delta;
+            Vec3 srcColor = Vec3(x, x, x);
+            Vec3 dstColor = bakeParams.EvalColor(srcColor);
+            _curve2[i] = dstColor.x;
+        }
+
+
+        for (int b = 0; b<32; ++b)
+        {
+            for (int g = 0; g<32; ++g)
+            {
+                for (int r = 0; r<32; ++r)
+                {
+                    int idx = b * 32 * 32 + g * 32 + r;
+
+                    //Vec3 srcColor = Vec3(r / 31.0f, g / 31.0f, b / 31.0f); // [0..1]
+                    //Vec3 srcColor = Vec3(r / (31.0f / 2.0f), g / (31.0f / 2.0f), b / (31.0f / 2.0f)); // [0..2]
+                    Vec3 srcColor = Vec3(r / (31.0f/4.0f), g / (31.0f / 4.0f), b / (31.0f / 4.0f)); // [0..4]
+                    Vec3 dstColor = bakeParams.EvalColor(srcColor);
+                    _3dlut[idx] = glm::vec3(dstColor.x, dstColor.y, dstColor.z);
+                }
+            }
+        }
+
+        // dont do that every frame
+        GLenum format = GL_RGB;
+        GLenum type = GL_FLOAT;
+        glTextureSubImage3D(_3dlut_tex, 0, 0, 0, 0, 32, 32, 32, format, type, _3dlut.data());
     }
+
+    // ACES
+    {
+        const glm::mat3 ACESInputMat =
+        {
+            { 0.59719, 0.35458, 0.04823 },
+            { 0.07600, 0.90834, 0.01566 },
+            { 0.02840, 0.13383, 0.83777 }
+        };
+
+        // ODT_SAT => XYZ => D60_2_D65 => sRGB
+        const glm::mat3 ACESOutputMat =
+        {
+            { 1.60475, -0.53108, -0.07367 },
+            { -0.10208,  1.10813, -0.00605 },
+            { -0.00327, -0.07276,  1.07602 }
+        };
+
+        auto RRTAndODTFit = [](vec3 v) -> vec3
+        {
+            vec3 a = v * (v + 0.0245786f) - 0.000090537f;
+            vec3 b = v * (0.983729f * v + 0.4329510f) + 0.238081f;
+            return a / b;
+         };
+
+        auto ACESFitted = [&](glm::vec3 color) -> glm::vec3
+        {
+            color = glm::transpose(ACESInputMat) * color; // transpose because HLSL matrix
+
+                                                     // Apply RRT and ODT
+            color = RRTAndODTFit(color);
+
+            color = glm::transpose(ACESOutputMat) * color;
+
+            // Clamp to [0, 1]
+            color = glm::clamp(color, glm::vec3(0), glm::vec3(1));
+
+            return color;
+        };
+
+        auto Linear_To_sRGB = [](glm::vec3 linear_color, float p) -> glm::vec3
+        {
+            return glm::pow(linear_color, glm::vec3(1.0f / p));
+        };
+
+        _curve3.resize(nb_steps); // fill with 0
+        float delta = (max_x - min_x) / (nb_steps - 1);
+        for (int i = 0; i < nb_steps; ++i)
+        {
+            float x = min_x + i * delta;
+            glm::vec3 srcColor = glm::vec3(x, x, x);
+            glm::vec3 dstColor = Linear_To_sRGB(ACESFitted(srcColor), g_ACESGamma);
+
+            _curve3[i] = dstColor.x;
+        }
+    }
+}
+
+static void ImGuiLabelWindow(const char *text, float x, float y)
+{
+    ImVec2 window_pos = ImVec2(x, y);
+    ImVec2 window_pos_pivot = ImVec2(0.5f, 0.5f);
+    ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+    ImGui::SetNextWindowBgAlpha(0.3f); // Transparent background
+
+    ImGuiWindowFlags window_flags = 0;
+    window_flags |= ImGuiWindowFlags_AlwaysAutoResize;
+    window_flags |= ImGuiWindowFlags_NoSavedSettings;
+    window_flags |= ImGuiWindowFlags_NoFocusOnAppearing;
+    window_flags |= ImGuiWindowFlags_NoTitleBar;
+    window_flags |= ImGuiWindowFlags_NoScrollbar;
+    window_flags |= ImGuiWindowFlags_NoMove;
+    window_flags |= ImGuiWindowFlags_NoResize;
+    window_flags |= ImGuiWindowFlags_NoCollapse;
+    window_flags |= ImGuiWindowFlags_NoNav;
+    bool *pOpen = nullptr;
+
+    ImGui::Begin(text, pOpen, window_flags);
+    ImGui::Text(text);
+    ImGui::End();
 }
 
 void AppTest::do_gui()
@@ -1016,17 +1152,33 @@ void AppTest::do_gui()
         ImGui::End();
         return;
     }
-    // if ...
-    update_tonemap_curves();
-    ImGui::PlotLines("L", _curve0.data(), _curve0.size(), 0, "Linear", 0.0f, 1.2f, ImVec2(0, 128)); 
-    ImGui::PlotLines("F1", _curve1.data(), _curve1.size(), 0, "Filmic", 0.0f, 1.2f, ImVec2(0, 128));
-    ImGui::SliderFloat("Toe Strength", &userParams.m_filmicToeStrength, 0.0f, 1.0f, "%.2f");
-    ImGui::SliderFloat("Toe Length", &userParams.m_filmicToeLength, 0.0f, 1.0f, "%.2f");
-    ImGui::SliderFloat("Shoulder Strength", &userParams.m_filmicShoulderStrength, 0.0f, 1.0f, "%.2f");
-    ImGui::SliderFloat("Shoulder Length", &userParams.m_filmicShoulderLength, 0.0f, 1.0f, "%.2f");
-    ImGui::SliderFloat("Shoulder Angle", &userParams.m_filmicShoulderAngle, 0.0f, 1.0f, "%.2f");
-    ImGui::SliderFloat("Gamma", &userParams.m_filmicGamma, 1.0f, 2.2f, "%.2f");
-    ImGui::PlotLines("F2", _curve2.data(), _curve2.size(), 0, "Filmic New", 0.0f, 1.2f, ImVec2(0, 128));
+
+    bool something_changed = false;
+
+    //ImGui::PlotLines("L", _curve0.data(), _curve0.size(), 0, "Linear", 0.0f, 1.2f, ImVec2(0, 128)); 
+
+    ImGui::PlotLines("F1", _curve1.data(), _curve1.size(), 0, "Filmic Uncharted 2 with Gamma", 0.0f, 1.0f, ImVec2(512, 128));
+
+    something_changed = ImGui::SliderFloat("Toe Strength", &userParams.m_filmicToeStrength, 0.0f, 1.0f, "%.2f") || something_changed;
+    something_changed = ImGui::SliderFloat("Toe Length", &userParams.m_filmicToeLength, 0.0f, 1.0f, "%.2f") || something_changed;
+    something_changed = ImGui::SliderFloat("Shoulder Strength", &userParams.m_filmicShoulderStrength, 0.0f, 4.0f, "%.2f") || something_changed;
+    something_changed = ImGui::SliderFloat("Shoulder Length", &userParams.m_filmicShoulderLength, 0.0f, 1.0f, "%.2f") || something_changed;
+    something_changed = ImGui::SliderFloat("Shoulder Angle", &userParams.m_filmicShoulderAngle, 0.0f, 1.0f, "%.2f") || something_changed;
+    //something_changed = ImGui::SliderFloat("Filmic Gamma", &userParams.m_filmicGamma, 1.0f, 2.2f, "%.2f") || something_changed;
+    something_changed = ImGui::SliderFloat("Filmic Gamma", &userParams.m_filmicGamma, 1.0f/2.2f, 1.0f, "%.2f") || something_changed;
+    ImGui::PlotLines("F2", _curve2.data(), _curve2.size(), 0, "Filmic J.Hable 2016", 0.0f, 1.0f, ImVec2(512, 128));
+
+    something_changed = ImGui::SliderFloat("ACES Gamma", &g_ACESGamma, 1.0f, 2.2f, "%.2f") || something_changed;
+    ImGui::PlotLines("A", _curve3.data(), _curve3.size(), 0, "ACES", 0.0f, 1.2f, ImVec2(512, 128));
+
+    if (something_changed)
+    {
+        update_tonemap_curves();
+    }
+
+    // if combobox
+    // choose which lut to fill
+
     if (ImGui::CollapsingHeader("Section 1"))
     {
         if (ImGui::Checkbox("Reset camera", &reset_cam))
@@ -1044,4 +1196,17 @@ void AppTest::do_gui()
     }
 
     ImGui::End();
+
+    //
+    // LABELS
+    //
+    float stride = (float)_fb_width / 4.0f;
+    float start = stride / 2.0f;
+    ImGuiLabelWindow("Clamped Linear", start, 20.0f);
+    start += stride;
+    ImGuiLabelWindow("Filmic J.Hable 2016 (LUT)", start, 20.0f);
+    start += stride;
+    ImGuiLabelWindow("ACES + Gamma", start, 20.0f);
+    start += stride;
+    ImGuiLabelWindow("Filmic Uncharted 2 (with Gamma)", start, 20.0f);
 }

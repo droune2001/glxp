@@ -87,6 +87,7 @@ private:
     };
 
     unsigned int _tex;
+    unsigned int _3dlut_tex;
     unsigned int _sampler;
     unsigned int _nearest_sampler;
     unsigned int _linear_sampler;
@@ -135,6 +136,9 @@ private:
     std::vector<float> _curve0;
     std::vector<float> _curve1;
     std::vector<float> _curve2;
+    std::vector<float> _curve3;
+
+    std::vector<glm::vec3> _3dlut;
 };
 
 #endif // _APP_TEST_2018_12_03_H_

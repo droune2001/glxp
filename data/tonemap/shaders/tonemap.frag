@@ -1,6 +1,7 @@
 #version 460 core
 
 layout(binding = 0) uniform sampler2D s;
+layout(binding = 1) uniform sampler3D lut_sampler;
 
 in VS_OUT
 {
@@ -92,6 +93,16 @@ vec3 Linear_To_sRGB(vec3 linear_color)
     return pow(linear_color, vec3(1.0/2.2));
 }
 
+vec3 lut(vec3 linear_hdr)
+{
+    float white_point = 4.0;
+    // scale down and clamp input colors to fit the LUT texcoords.
+    vec3 lut_tc = min((1.0/white_point)*linear_hdr, vec3(1));
+    
+    return texture(lut_sampler, lut_tc).rgb;
+}
+
+
 void main()
 {
     vec3 linear_hdr = texture(s, fs_in.tc).rgb;
@@ -104,8 +115,9 @@ void main()
     else if(fs_in.tc.x < 0.5)
     {
         // CLAMP + GAMMA
-        vec3 c = clamp(linear_hdr, vec3(0), vec3(1));
-        outColor = vec4(Linear_To_sRGB(c), 1);
+        //vec3 c = clamp(linear_hdr, vec3(0), vec3(1));
+        //outColor = vec4(Linear_To_sRGB(c), 1);
+        outColor = vec4(lut(linear_hdr), 1);
     }
     else if(fs_in.tc.x < 0.75)
     {
