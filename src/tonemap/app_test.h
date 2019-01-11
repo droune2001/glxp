@@ -97,6 +97,9 @@ private:
     program _simple_program;
     unsigned int _fullscreen_program;
     unsigned int _tonemap_program;
+    unsigned int _3dlut_program;
+    unsigned int _uni_width;
+    unsigned int _uni_height;
     unsigned int _dummy_vao;
 
     // framebuffers

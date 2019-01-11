@@ -573,6 +573,33 @@ bool AppTest::load_shaders()
         _fullscreen_program = prog_id;
     }
 
+    // 3dlut
+    {
+        auto vs = utils::read_file_content(shaders_path + "draw_lut.vert");
+        auto fs = utils::read_file_content(shaders_path + "draw_lut.frag");
+
+        GLuint vs_id = glCreateShader(GL_VERTEX_SHADER);
+        GLuint fs_id = glCreateShader(GL_FRAGMENT_SHADER);
+
+        if (!glutils::compile_shader(vs_id, vs.data(), vs.size()))
+            return false;
+        if (!glutils::compile_shader(fs_id, fs.data(), fs.size()))
+            return false;
+
+        GLuint prog_id = glCreateProgram();
+
+        if (!glutils::link_program(prog_id, vs_id, fs_id))
+            return false;
+
+        glDeleteShader(vs_id);
+        glDeleteShader(fs_id);
+
+        _3dlut_program = prog_id;
+
+        _uni_width = glGetUniformLocation(prog_id, "width");
+        _uni_height = glGetUniformLocation(prog_id, "height");
+    }
+
     // tonemap
     {
         auto vs = utils::read_file_content(shaders_path + "tonemap.vert");
@@ -883,6 +910,19 @@ void AppTest::run(float dt)
         glUseProgram(_fullscreen_program);
         glBindVertexArray(_dummy_vao);
         glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindVertexArray(0);
+        glUseProgram(0);
+    }
+
+    // Draw 3d LUT
+    {
+        glBindSampler(1, _linear_sampler);
+        glBindTextureUnit(1, _3dlut_tex);
+        glUseProgram(_3dlut_program);
+        glUniform1i(_uni_width, _fb_width);
+        glUniform1i(_uni_height, _fb_height);
+        glBindVertexArray(_dummy_vao);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         glUseProgram(0);
     }

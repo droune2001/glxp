@@ -114,9 +114,7 @@ void main()
     }
     else if(fs_in.tc.x < 0.5)
     {
-        // CLAMP + GAMMA
-        //vec3 c = clamp(linear_hdr, vec3(0), vec3(1));
-        //outColor = vec4(Linear_To_sRGB(c), 1);
+        // Filmic LUT
         outColor = vec4(lut(linear_hdr), 1);
     }
     else if(fs_in.tc.x < 0.75)
