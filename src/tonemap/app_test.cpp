@@ -854,6 +854,7 @@ void AppTest::run(float dt)
         glBindVertexArray(0);
         glUseProgram(0);
 
+#if 0
         // Scene content
         glEnable(GL_DEPTH_TEST);
         glUseProgram(_simple_program.program_id);
@@ -882,6 +883,7 @@ void AppTest::run(float dt)
         glBindVertexArray(0);
         glUseProgram(0);
         glDisable(GL_DEPTH_TEST);
+#endif
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -1198,7 +1200,7 @@ void AppTest::do_gui()
 
         bool something_changed = false;
 
-        ImGui::Combo("View", &_current_view, "Horizontal Split 4\0Quad Split 4\0Linear Only\0Filmic LUT Only\0ACES Only\0Filmic UC2 Only\0\0");
+        ImGui::Combo("View", &_current_view, "Horizontal Split 4\0Split 2 ACES\0Linear Only\0Filmic LUT Only\0ACES Only\0Filmic UC2 Only\0\0");
 
         //ImGui::PlotLines("L", _curve0.data(), _curve0.size(), 0, "Linear", 0.0f, 1.2f, ImVec2(0, 128)); 
 
@@ -1230,13 +1232,57 @@ void AppTest::do_gui()
     //
     // LABELS
     //
-    float stride = (float)_fb_width / 4.0f;
-    float start = stride / 2.0f;
-    ImGuiLabelWindow("Clamped Linear", start, 20.0f);
-    start += stride;
-    ImGuiLabelWindow("Filmic J.Hable 2016 (LUT)", start, 20.0f);
-    start += stride;
-    ImGuiLabelWindow("ACES + Gamma", start, 20.0f);
-    start += stride;
-    ImGuiLabelWindow("Filmic Uncharted 2 (with Gamma)", start, 20.0f);
+#define HORIZONTAL_SPLIT_4 0
+#define SPLIT_2_ACES       1
+#define LINEAR_ONLY        2
+#define FILMIC_LUT_ONLY    3
+#define ACES_ONLY          4
+#define FILMIC_UC2_ONLY    5
+
+    switch (_current_view)
+    {
+        case HORIZONTAL_SPLIT_4:
+        {
+            float stride = (float)_fb_width / 4.0f;
+            float start = stride / 2.0f;
+            ImGuiLabelWindow("Clamped Linear", start, 20.0f);
+            start += stride;
+            ImGuiLabelWindow("Filmic J.Hable 2016 (LUT)", start, 20.0f);
+            start += stride;
+            ImGuiLabelWindow("ACES", start, 20.0f);
+            start += stride;
+            ImGuiLabelWindow("Filmic Uncharted 2 (with Gamma)", start, 20.0f);
+        }
+        break;
+
+
+        case SPLIT_2_ACES:
+        {
+            float stride = (float)_fb_width / 2.0f;
+            float start = stride / 2.0f;
+            ImGuiLabelWindow("ACES with Linear Input", start, 20.0f);
+            start += stride;
+            ImGuiLabelWindow("ACES with sRGB Input", start, 20.0f);
+        } break;
+
+        case LINEAR_ONLY:
+        {
+            ImGuiLabelWindow("Clamped Linear", (float)_fb_width / 2.0f, 20.0f);
+        } break;
+
+        case FILMIC_LUT_ONLY:
+        {
+            ImGuiLabelWindow("Filmic J.Hable 2016 (LUT)", (float)_fb_width / 2.0f, 20.0f);
+        } break;
+
+        case ACES_ONLY:
+        {
+            ImGuiLabelWindow("ACES", (float)_fb_width / 2.0f, 20.0f);
+        } break;
+
+        case FILMIC_UC2_ONLY:
+        {
+            ImGuiLabelWindow("Filmic Uncharted 2", (float)_fb_width / 2.0f, 20.0f);
+        } break;
+    }
 }

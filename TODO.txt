@@ -25,13 +25,15 @@ Object contour for selection:
 HDR Tonemapping:
 ---------------
 - [FBO]
+x ACES, Filmic
+  x https://github.com/ampas/aces-dev
+  x https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
+  x https://www.slideshare.net/ozlael/hable-john-uncharted2-hdr-lighting/53
+  x http://filmicworlds.com/blog/filmic-tonemapping-with-piecewise-power-curves/ (after uncharted 2, better)
+  x http://advances.realtimerendering.com/other/2016/naughty_dog/NaughtyDog_TechArt_Final.pdf
+  - Exposure applied on input image.
 - Luminance Histogram (compute shaders)
   - http://alextardif.com/HistogramLuminance.html
-- ACES, Filmic, Reinhardt
-  - https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
-  - https://www.slideshare.net/ozlael/hable-john-uncharted2-hdr-lighting/53
-  - http://filmicworlds.com/blog/filmic-tonemapping-with-piecewise-power-curves/ (after uncharted 2, better)
-  - http://advances.realtimerendering.com/other/2016/naughty_dog/NaughtyDog_TechArt_Final.pdf
 
 Cascaded ShadowMaps:
 -------------------

@@ -328,7 +328,7 @@ int main(int argc, char **argv)
             should_refresh_fps = true;
         }
 
-        show_fps_window(should_refresh_fps, fps);
+        //show_fps_window(should_refresh_fps, fps);
 
         //if (show_demo_window)
         //{

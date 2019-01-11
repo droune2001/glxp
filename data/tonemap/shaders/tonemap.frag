@@ -1,11 +1,11 @@
 #version 460 core
 
 #define HORIZONTAL_SPLIT_4 0
-#define QUAD_SPLIT_4       1
+#define SPLIT_2_ACES       1
 #define LINEAR_ONLY        2
 #define FILMIC_LUT_ONLY    3
 #define ACES_ONLY          4
-#define FILMIC_UC2_ONLY 5
+#define FILMIC_UC2_ONLY    5
 
 uniform int view;
 
@@ -26,7 +26,7 @@ layout(location = 0) out vec4 outColor;
 // https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
 // original by Stephen Hill
 
-// sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
+// Linear_sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
 const mat3 ACESInputMat =
 {
     {0.59719, 0.35458, 0.04823},
@@ -34,7 +34,7 @@ const mat3 ACESInputMat =
     {0.02840, 0.13383, 0.83777}
 };
 
-// ODT_SAT => XYZ => D60_2_D65 => sRGB
+// ODT_SAT => XYZ => D60_2_D65 => Linear_sRGB
 const mat3 ACESOutputMat =
 {
     { 1.60475, -0.53108, -0.07367},
@@ -143,7 +143,23 @@ void main()
             }
         } break;
 
-        case QUAD_SPLIT_4: break;
+        case SPLIT_2_ACES: 
+        {
+            if(fs_in.tc.x < 0.5)
+            {
+                // ACES correct
+                vec2 tc = vec2(1.0-fs_in.tc.x, fs_in.tc.y); // mirror
+                linear_hdr = texture(s, tc).rgb;
+                vec3 c = ACESFitted(linear_hdr);
+                outColor = vec4(Linear_To_sRGB(c), 1);
+            }
+            else
+            {
+                // ACES dans le mauvais sens.
+                vec3 c = ACESFitted(Linear_To_sRGB(linear_hdr));
+                outColor = vec4(c, 1);
+            }
+        } break;
 
         case LINEAR_ONLY: 
         {
