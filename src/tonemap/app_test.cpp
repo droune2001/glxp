@@ -622,6 +622,8 @@ bool AppTest::load_shaders()
         glDeleteShader(fs_id);
 
         _tonemap_program = prog_id;
+
+        _uni_splitview = glGetUniformLocation(prog_id, "view");
     }
 
     return true;
@@ -895,6 +897,7 @@ void AppTest::run(float dt)
         glBindTextureUnit(1, _3dlut_tex);
 
         glUseProgram(_tonemap_program);
+        glUniform1i(_uni_splitview, _current_view);
         glBindVertexArray(_dummy_vao);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         glBindVertexArray(0);
@@ -915,6 +918,7 @@ void AppTest::run(float dt)
     }
 
     // Draw 3d LUT
+    if(_draw3dlut)
     {
         glBindSampler(1, _linear_sampler);
         glBindTextureUnit(1, _3dlut_tex);
@@ -1186,56 +1190,42 @@ void AppTest::do_gui()
     static bool show_dialog = true;
     static bool reset_cam = false;
 
-    if (!ImGui::Begin("Options", &show_dialog, ImGuiWindowFlags_None))
+    // Early out if the window is collapsed, as an optimization.
+    if (ImGui::Begin("Options", &show_dialog, ImGuiWindowFlags_None))
     {
-        // Early out if the window is collapsed, as an optimization.
-        ImGui::End();
-        return;
-    }
 
-    bool something_changed = false;
 
-    //ImGui::PlotLines("L", _curve0.data(), _curve0.size(), 0, "Linear", 0.0f, 1.2f, ImVec2(0, 128)); 
 
-    ImGui::PlotLines("F1", _curve1.data(), _curve1.size(), 0, "Filmic Uncharted 2 with Gamma", 0.0f, 1.0f, ImVec2(512, 128));
+        bool something_changed = false;
 
-    something_changed = ImGui::SliderFloat("Toe Strength", &userParams.m_filmicToeStrength, 0.0f, 1.0f, "%.2f") || something_changed;
-    something_changed = ImGui::SliderFloat("Toe Length", &userParams.m_filmicToeLength, 0.0f, 1.0f, "%.2f") || something_changed;
-    something_changed = ImGui::SliderFloat("Shoulder Strength", &userParams.m_filmicShoulderStrength, 0.0f, 4.0f, "%.2f") || something_changed;
-    something_changed = ImGui::SliderFloat("Shoulder Length", &userParams.m_filmicShoulderLength, 0.0f, 1.0f, "%.2f") || something_changed;
-    something_changed = ImGui::SliderFloat("Shoulder Angle", &userParams.m_filmicShoulderAngle, 0.0f, 1.0f, "%.2f") || something_changed;
-    //something_changed = ImGui::SliderFloat("Filmic Gamma", &userParams.m_filmicGamma, 1.0f, 2.2f, "%.2f") || something_changed;
-    something_changed = ImGui::SliderFloat("Filmic Gamma", &userParams.m_filmicGamma, 1.0f/2.2f, 1.0f, "%.2f") || something_changed;
-    ImGui::PlotLines("F2", _curve2.data(), _curve2.size(), 0, "Filmic J.Hable 2016", 0.0f, 1.0f, ImVec2(512, 128));
+        ImGui::Combo("View", &_current_view, "Horizontal Split 4\0Quad Split 4\0Linear Only\0Filmic LUT Only\0ACES Only\0Filmic UC2 Only\0\0");
 
-    something_changed = ImGui::SliderFloat("ACES Gamma", &g_ACESGamma, 1.0f, 2.2f, "%.2f") || something_changed;
-    ImGui::PlotLines("A", _curve3.data(), _curve3.size(), 0, "ACES", 0.0f, 1.2f, ImVec2(512, 128));
+        //ImGui::PlotLines("L", _curve0.data(), _curve0.size(), 0, "Linear", 0.0f, 1.2f, ImVec2(0, 128)); 
 
-    if (something_changed)
-    {
-        update_tonemap_curves();
-    }
+        ImGui::PlotLines("F1", _curve1.data(), _curve1.size(), 0, "Filmic Uncharted 2 with Gamma", 0.0f, 1.0f, ImVec2(512, 128));
 
-    // if combobox
-    // choose which lut to fill
+        ImGui::Checkbox("Draw 3D LUT", &_draw3dlut);
+        something_changed = ImGui::SliderFloat("Toe Strength", &userParams.m_filmicToeStrength, 0.0f, 1.0f, "%.2f") || something_changed;
+        something_changed = ImGui::SliderFloat("Toe Length", &userParams.m_filmicToeLength, 0.0f, 1.0f, "%.2f") || something_changed;
+        something_changed = ImGui::SliderFloat("Shoulder Strength", &userParams.m_filmicShoulderStrength, 0.0f, 4.0f, "%.2f") || something_changed;
+        something_changed = ImGui::SliderFloat("Shoulder Length", &userParams.m_filmicShoulderLength, 0.0f, 1.0f, "%.2f") || something_changed;
+        something_changed = ImGui::SliderFloat("Shoulder Angle", &userParams.m_filmicShoulderAngle, 0.0f, 1.0f, "%.2f") || something_changed;
+        something_changed = ImGui::SliderFloat("Filmic Gamma", &userParams.m_filmicGamma, 1.0f / 2.2f, 1.0f, "%.2f") || something_changed;
+        ImGui::PlotLines("F2", _curve2.data(), _curve2.size(), 0, "Filmic J.Hable 2016", 0.0f, 1.0f, ImVec2(512, 128));
 
-    if (ImGui::CollapsingHeader("Section 1"))
-    {
-        if (ImGui::Checkbox("Reset camera", &reset_cam))
+        something_changed = ImGui::SliderFloat("ACES Gamma", &g_ACESGamma, 1.0f, 2.2f, "%.2f") || something_changed;
+        ImGui::PlotLines("A", _curve3.data(), _curve3.size(), 0, "ACES", 0.0f, 1.2f, ImVec2(512, 128));
+
+        if (something_changed)
         {
-            // ...
+            update_tonemap_curves();
         }
 
-        ImGui::InputInt("Current Camera", &_current_camera_idx);
-        Camera *cm = current_camera();
-        if (cm)
-        {
-            ImGui::Text("eye: %.2f %.2f %.2f", cm->eye.x, cm->eye.y, cm->eye.z);
-            ImGui::SliderAngle("FoV", &cm->fovy_degrees, 1.0f, 179.0f);
-        }
+        // if combobox
+        // choose which lut to fill
     }
-
     ImGui::End();
+
 
     //
     // LABELS

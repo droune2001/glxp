@@ -100,6 +100,7 @@ private:
     unsigned int _3dlut_program;
     unsigned int _uni_width;
     unsigned int _uni_height;
+    unsigned int _uni_splitview;
     unsigned int _dummy_vao;
 
     // framebuffers
@@ -142,6 +143,8 @@ private:
     std::vector<float> _curve3;
 
     std::vector<glm::vec3> _3dlut;
+    bool _draw3dlut = true;
+    int _current_view = 0;
 };
 
 #endif // _APP_TEST_2018_12_03_H_

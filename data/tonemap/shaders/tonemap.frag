@@ -1,5 +1,14 @@
 #version 460 core
 
+#define HORIZONTAL_SPLIT_4 0
+#define QUAD_SPLIT_4       1
+#define LINEAR_ONLY        2
+#define FILMIC_LUT_ONLY    3
+#define ACES_ONLY          4
+#define FILMIC_UC2_ONLY 5
+
+uniform int view;
+
 layout(binding = 0) uniform sampler2D s;
 layout(binding = 1) uniform sampler3D lut_sampler;
 
@@ -106,26 +115,60 @@ vec3 lut(vec3 linear_hdr)
 void main()
 {
     vec3 linear_hdr = texture(s, fs_in.tc).rgb;
-    if(fs_in.tc.x < 0.25)
+    switch(view)
     {
-        // CLAMP
-        vec3 c = clamp(linear_hdr, vec3(0), vec3(1));
-        outColor = vec4(c, 1);
+        case HORIZONTAL_SPLIT_4: 
+        {
+            if(fs_in.tc.x < 0.25)
+            {
+                // CLAMP
+                vec3 c = clamp(linear_hdr, vec3(0), vec3(1));
+                outColor = vec4(c, 1);
+            }
+            else if(fs_in.tc.x < 0.5)
+            {
+                // Filmic LUT
+                outColor = vec4(lut(linear_hdr), 1);
+            }
+            else if(fs_in.tc.x < 0.75)
+            {
+                // ACES + GAMMA
+                vec3 c = ACESFitted(linear_hdr);
+                outColor = vec4(Linear_To_sRGB(c), 1);
+            }
+            else
+            {
+                // FILMIC + GAMMA
+                outColor = vec4(Filmic_1(linear_hdr), 1);
+            }
+        } break;
+
+        case QUAD_SPLIT_4: break;
+
+        case LINEAR_ONLY: 
+        {
+            vec3 c = clamp(linear_hdr, vec3(0), vec3(1));
+            outColor = vec4(c, 1);
+        } break;
+
+        case FILMIC_LUT_ONLY: 
+        {
+            outColor = vec4(lut(linear_hdr), 1);
+        } break;
+
+        case ACES_ONLY: 
+        {
+            vec3 c = ACESFitted(linear_hdr);
+            outColor = vec4(Linear_To_sRGB(c), 1);
+        } break;
+
+        case FILMIC_UC2_ONLY: 
+        {
+            outColor = vec4(Filmic_1(linear_hdr), 1);
+        } break;
     }
-    else if(fs_in.tc.x < 0.5)
-    {
-        // Filmic LUT
-        outColor = vec4(lut(linear_hdr), 1);
-    }
-    else if(fs_in.tc.x < 0.75)
-    {
-        // ACES + GAMMA
-        vec3 c = ACESFitted(linear_hdr);
-        outColor = vec4(Linear_To_sRGB(c), 1);
-    }
-    else
-    {
-        // FILMIC + GAMMA
-        outColor = vec4(Filmic_1(linear_hdr), 1);
-    }
+
+
+
+    
 }
