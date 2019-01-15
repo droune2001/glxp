@@ -7,7 +7,9 @@ x CommandLine facility (for scene file, at least.)
 x FPS Camera.
 x Texture load.
 x Fullscreen quad.
-x Procedural stock geometry.
+- Procedural stock geometry.
+  - UV sphere
+  - cubemap sphere
 x FBO facility + render to FBO and blit final quad.
 - Picking (= global map of objects)
 
@@ -34,6 +36,7 @@ x ACES, Filmic
   - Exposure applied on input image.
 - Luminance Histogram (compute shaders)
   - http://alextardif.com/HistogramLuminance.html
+  - Exposure correction.
 
 Cascaded ShadowMaps:
 -------------------
@@ -49,7 +52,11 @@ Depth of Field:
 
 SSAO:
 ----
+- HBAO+
 
 Temporal Reprojection xxx:
 -------------------------
+- TAA
 
+Motion Blur:
+-----------

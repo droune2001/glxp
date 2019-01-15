@@ -15,16 +15,16 @@ struct vertex_t
 {
     glm::vec3 p;
     glm::vec3 n;
-    glm::vec2 uv;
+    glm::vec2 uv; // TODO: 3 components for cubemap
 };
 
 using TriangleList = std::vector<triangle_t>;
 using IndexList = std::vector<index_t>;
 using VertexList = std::vector<vertex_t>;
-//using IndexedMesh = std::pair<VertexList, IndexList>;
 using IndexedMesh = struct { VertexList vertices; IndexList indices; };
 
 IndexedMesh make_icosphere(int subdivisions, float radius = 1.0f);
+IndexedMesh make_uvsphere(unsigned int subdiv_lat=5, unsigned int subdiv_long=10, float radius = 1.0f);
 IndexedMesh make_flat_cube(float width = 1.0f, float height = 1.0f, float depth = 1.0f);
 IndexedMesh make_hexagon(float width, float height, glm::vec3 normal = glm::vec3(0, 0, 1));
 

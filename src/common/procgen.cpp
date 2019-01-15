@@ -93,6 +93,58 @@ TriangleList subdivide(
     return result;
 }
 
+IndexedMesh make_uvsphere(unsigned int subdiv_lat, unsigned int subdiv_long, float radius = 1.0f)
+{
+    /*
+
+    0---1---2
+    | / | / |
+    3---4---5
+    | / | / |
+    6---7---8
+
+    */
+    const unsigned int nb_vertices_x = 2 + subdiv_long;
+    const unsigned int nb_vertices_y = 2 + subdiv_lat;
+    const unsigned int nb_vertices = nb_vertices_x * nb_vertices_y;
+    VertexList vertices(nb_vertices);
+    
+    const unsigned int nb_quads_x = nb_vertices_x - 1;
+    const unsigned int nb_quads_y = nb_vertices_y - 1;
+    const unsigned int nb_quads = nb_quads_x * nb_quads_y;
+    const unsigned int nb_triangles = nb_quads * 2;
+    const unsigned int nb_indices = nb_triangles * 3;
+    IndexList indices(nb_indices);
+
+    for (unsigned int v = 0; v < nb_vertices_y; ++v)
+    {
+        float fv = (float)v / (float)(nb_vertices_y - 1);
+        float v_angle = fv * glm::pi<float>();
+        for (unsigned int u = 0; u < nb_vertices_x; ++u)
+        {
+            float fu = (float)u / (float)(nb_vertices_x - 1);
+            float u_angle = fv * 2 * glm::pi<float>();
+
+            float x = radius * std::fabsf(std::sin(v_angle)) * std::cos(u_angle); // [0..radius..0] * [1..0..-1..0..1]
+            float y = radius * std::cos(v_angle); // [1..0..-1]
+            float z = radius * std::fabsf(std::sin(v_angle)) * -std::sin(u_angle); // [0..radius..0] * [0..-1..0..1..0];
+
+            const unsigned int vertex_index = v * nb_vertices_x + u;
+            vertices[vertex_index].p = glm::vec3(x,y,z);
+            vertices[vertex_index].n = glm::normalize(glm::vec3(x, y, z));
+            vertices[vertex_index].uv = glm::vec2(fu,fv);
+        }
+    }
+
+    for (unsigned int qy = 0; qy < nb_quads_y; ++qy)
+    {
+        for (unsigned int qx = 0; qx < nb_quads_x; ++qx)
+        {
+
+        }
+    }
+}
+
 IndexedMesh make_icosphere(int subdivisions, float radius)
 {
     VertexList vertices = icosahedron::vertices;
