@@ -93,15 +93,18 @@ TriangleList subdivide(
     return result;
 }
 
-IndexedMesh make_uvsphere(unsigned int subdiv_lat, unsigned int subdiv_long, float radius = 1.0f)
+IndexedMesh make_uvsphere(unsigned int subdiv_lat, unsigned int subdiv_long, float radius)
 {
     /*
 
     0---1---2
-    | / | / |
+    | \ | \ |
     3---4---5
-    | / | / |
+    | \ | \ |
     6---7---8
+
+    uv(0,0) bottom left
+    uv(1,1) top right
 
     */
     const unsigned int nb_vertices_x = 2 + subdiv_long;
@@ -123,7 +126,7 @@ IndexedMesh make_uvsphere(unsigned int subdiv_lat, unsigned int subdiv_long, flo
         for (unsigned int u = 0; u < nb_vertices_x; ++u)
         {
             float fu = (float)u / (float)(nb_vertices_x - 1);
-            float u_angle = fv * 2 * glm::pi<float>();
+            float u_angle = fu * 2 * glm::pi<float>();
 
             float x = radius * std::fabsf(std::sin(v_angle)) * std::cos(u_angle); // [0..radius..0] * [1..0..-1..0..1]
             float y = radius * std::cos(v_angle); // [1..0..-1]
@@ -132,7 +135,7 @@ IndexedMesh make_uvsphere(unsigned int subdiv_lat, unsigned int subdiv_long, flo
             const unsigned int vertex_index = v * nb_vertices_x + u;
             vertices[vertex_index].p = glm::vec3(x,y,z);
             vertices[vertex_index].n = glm::normalize(glm::vec3(x, y, z));
-            vertices[vertex_index].uv = glm::vec2(fu,fv);
+            vertices[vertex_index].uv = glm::vec2(fu,1.0f-fv);
         }
     }
 
@@ -140,9 +143,21 @@ IndexedMesh make_uvsphere(unsigned int subdiv_lat, unsigned int subdiv_long, flo
     {
         for (unsigned int qx = 0; qx < nb_quads_x; ++qx)
         {
-
+            const unsigned int base_idx = 2 * 3 * (qy * nb_quads_x + qx);
+            const unsigned int idx_x0y0 = qy * nb_vertices_x + qx;
+            const unsigned int idx_x1y0 = qy * nb_vertices_x + qx + 1;
+            const unsigned int idx_x0y1 = (qy+1) * nb_vertices_x + qx;
+            const unsigned int idx_x1y1 = (qy+1) * nb_vertices_x + qx + 1;
+            indices[base_idx + 0] = idx_x0y0;
+            indices[base_idx + 1] = idx_x1y0;
+            indices[base_idx + 2] = idx_x1y1;
+            indices[base_idx + 3] = idx_x0y0;
+            indices[base_idx + 4] = idx_x1y1;
+            indices[base_idx + 5] = idx_x0y1;
         }
     }
+
+    return{ vertices, indices };
 }
 
 IndexedMesh make_icosphere(int subdivisions, float radius)

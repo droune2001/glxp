@@ -122,7 +122,7 @@ private:
     bool _mouse_pressed = false;
     
     Camera *current_camera() { return (_current_camera_idx != -1) ? _cameras[_current_camera_idx].get() : nullptr; };
-    int _current_camera_idx = 0;
+    int _current_camera_idx = 1;// 0;
     std::vector<std::unique_ptr<Camera>> _cameras;
 
     glm::vec3 scene_bbox_min;

@@ -722,7 +722,8 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
     //ret = load_obj(_scene_path.c_str());
 
     //add_to_scene("cube", make_flat_cube(1.0f, 1.0f, 1.0f));
-    add_to_scene("sphere", make_icosphere(5, 1.0f));
+    //add_to_scene("sphere", make_icosphere(5, 1.0f));
+    add_to_scene("sphere", make_uvsphere(50, 100, 1.0f));
     
     //
     // compute the whole scene bbox
@@ -757,10 +758,14 @@ bool AppTest::init(int framebuffer_width, int framebuffer_height)
 
     auto fc = std::make_unique<FpsCamera>();
     fc->viewport = glm::ivec4(0, 0, _fb_width, _fb_height); // full framebuffer viewport
-    fc->eye = glm::vec3(0.0f, 0.0f, 2.0f * scene_radius);
-    fc->dir = glm::vec3(0, 0, -1);
-    fc->near_plane = 1.0f;
-    fc->far_plane = 5.0f * scene_radius;// 100.0f;
+    //fc->eye = glm::vec3(0.0f, 0.0f, 2.0f * scene_radius);
+    //fc->dir = glm::vec3(0, 0, -1);
+    //fc->near_plane = 1.0f;
+    //fc->far_plane = 5.0f * scene_radius;// 100.0f;
+    fc->eye = glm::vec3(0.0f, 0.0f, 0.0f);
+    fc->target = glm::vec3(0, 0, -1);
+    fc->near_plane = 0.1f;
+    fc->far_plane = 100.0f;
     fc->fovy_degrees = 45.0f;
     fc->update(); // build initial matrices
     _cameras.emplace_back(std::move(fc));
@@ -854,7 +859,7 @@ void AppTest::run(float dt)
         glBindVertexArray(0);
         glUseProgram(0);
 
-#if 0
+#if 1
         // Scene content
         glEnable(GL_DEPTH_TEST);
         glUseProgram(_simple_program.program_id);
@@ -1195,8 +1200,21 @@ void AppTest::do_gui()
     // Early out if the window is collapsed, as an optimization.
     if (ImGui::Begin("Options", &show_dialog, ImGuiWindowFlags_None))
     {
+        if (ImGui::CollapsingHeader("Section 1"))
+        {
+            if (ImGui::Checkbox("Reset camera", &reset_cam))
+            {
+                // ...
+            }
 
-
+            ImGui::InputInt("Current Camera", &_current_camera_idx);
+            Camera *cm = current_camera();
+            if (cm)
+            {
+                ImGui::Text("eye: %.2f %.2f %.2f", cm->eye.x, cm->eye.y, cm->eye.z);
+                ImGui::SliderAngle("FoV", &cm->fovy_degrees, 1.0f, 179.0f);
+            }
+        }
 
         bool something_changed = false;
 
