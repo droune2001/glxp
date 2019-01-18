@@ -31,7 +31,7 @@ void Camera::mouse_click(int dx, int dy)
 
 }
 
-void Camera::mouse_move(int mx, int my)
+void Camera::mouse_move(float mx, float my)
 {
     
 }
@@ -42,16 +42,16 @@ void Camera::mouse_move(int mx, int my)
 
 void FpsCamera::mouse_click(int mx, int my)
 {
-    _mx = mx;
-    _my = my;
+    _mx = (float)mx;
+    _my = (float)my;
 }
 
-void FpsCamera::mouse_move(int mx, int my)
+void FpsCamera::mouse_move(float mx, float my)
 {
-    int dx = mx - _mx;
-    int dy = my - _my;
+    float dx = mx - _mx;
+    float dy = my - _my;
 
-    if (dx == 0 || dy == 0)
+    if (std::fabsf(dx) < 1e-4 || std::fabsf(dy) < 1e-4)
         return;
 
     glm::vec3 cam_z = -glm::normalize(target - eye);
@@ -129,7 +129,7 @@ void ArcballCamera::mouse_click(int mx, int my)
     }
 }
 
-void ArcballCamera::mouse_move(int mx, int my)
+void ArcballCamera::mouse_move(float mx, float my)
 {
     if (_planar)
     {

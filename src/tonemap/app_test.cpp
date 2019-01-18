@@ -807,7 +807,6 @@ void AppTest::update_camera(float dt)
     bool down = io.KeysDown[GLFW_KEY_PAGE_DOWN];
 
     glm::vec3 direction(0.0f);
-    auto test = left ^ right;
     direction.x = !(left ^ right) ? 0.0f : ( left ? -1.0f : 1.0f);
     direction.y = !(down ^ up) ? 0.0f : (down ? -1.0f : 1.0f);
     direction.z = !(forward ^ backward) ? 0.0f : (forward ? -1.0f : 1.0f);
@@ -965,8 +964,11 @@ void AppTest::onKeyboard(GLFWwindow * window, int key, int scancode, int action,
     (void)mods;
     if (action == GLFW_PRESS || action == GLFW_REPEAT)
     {
-        //if (key == GLFW_KEY_E)
-        //    toto = !toto;
+        if (key == GLFW_KEY_F1)
+        {
+            _mouse_locked = !_mouse_locked;
+            glfwSetInputMode(window, GLFW_CURSOR, _mouse_locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+        }
         
         // Close window
         if (key == GLFW_KEY_Q || key == GLFW_KEY_ESCAPE)
@@ -1006,12 +1008,12 @@ void AppTest::onMouseMove(GLFWwindow* window, double mouse_x, double mouse_y)
 {
     (void)window;
 
-    if (_mouse_pressed) 
+    if (_mouse_pressed || _mouse_locked)
     {
         auto *cm = current_camera();
         if (cm)
         {
-            int invert_y = (_fb_height - _mouse_y) - 1;
+            double invert_y = ((double)_fb_height - _mouse_y) - 1.0;
             cm->mouse_move(mouse_x, invert_y);
         }
     }

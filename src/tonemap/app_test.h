@@ -120,7 +120,8 @@ private:
     double _mouse_x = 0;
     double _mouse_y = 0;
     bool _mouse_pressed = false;
-    
+    bool _mouse_locked = false;
+
     Camera *current_camera() { return (_current_camera_idx != -1) ? _cameras[_current_camera_idx].get() : nullptr; };
     int _current_camera_idx = 1;// 0;
     std::vector<std::unique_ptr<Camera>> _cameras;
